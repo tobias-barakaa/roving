@@ -1,0 +1,21 @@
+
+### Health check
+GET http://localhost:8080/health
+
+### Register
+POST http://localhost:8080/auth/register
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "A-long-test-password-123!"
+}
+
+### Login
+POST http://localhost:8080/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "A-long-test-password-123!"
+}
