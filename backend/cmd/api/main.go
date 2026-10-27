@@ -14,13 +14,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
 
-	"study-platform/backend/internal/auth"
-	"study-platform/backend/internal/config"
-	"study-platform/backend/internal/database"
-	"study-platform/backend/internal/groups"
-	"study-platform/backend/internal/httpx"
-	"study-platform/backend/internal/mailer"
-	"study-platform/backend/internal/users"
+	"roving/backend/internal/auth"
+	"roving/backend/internal/config"
+	"roving/backend/internal/database"
+	"roving/backend/internal/groups"
+	"roving/backend/internal/httpx"
+	"roving/backend/internal/mailer"
+	"roving/backend/internal/users"
 )
 
 func main() {
@@ -59,9 +59,30 @@ func main() {
 	tokenStore := auth.NewEmailTokenStore(db)
 	authHandler := auth.NewHandler(cfg, userStore, sessionStore, tokenStore, mail)
 
-	groupsService := groups.NewService(db, noopPauser{})
-	groupsHandler := groups.NewHandler(groupsService, authHandler.RequireAuth())
+	// groupsService := groups.NewService(db, noopPauser{})
+	// groupsHandler := groups.NewHandler(groupsService, authHandler.RequireAuth())
 
+
+
+
+
+
+
+
+
+
+	groupsRepo := groups.NewRepository(db)
+	groupsService := groups.NewService(groupsRepo, groups.noopPauser{}) 
+	groupsHandler := groups.NewHandler(groupsService, authHandler.RequireAuth())
+	// ...
+	api := router.Group("/api/v1")
+	authHandler.Routes(api)
+	groupsHandler.Routes(api)
+
+	
+
+
+	
 	go sessionStore.RunCleanup(ctx, time.Hour)
 
 	router := gin.New()

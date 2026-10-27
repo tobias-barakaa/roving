@@ -1,4 +1,4 @@
-module study-platform/backend
+module roving/backend
 
 go 1.26.5
 

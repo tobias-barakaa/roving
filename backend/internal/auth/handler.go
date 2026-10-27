@@ -12,10 +12,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"study-platform/backend/internal/config"
-	"study-platform/backend/internal/httpx"
-	"study-platform/backend/internal/mailer"
-	"study-platform/backend/internal/users"
+	"roving/backend/internal/config"
+	"roving/backend/internal/httpx"
+	"roving/backend/internal/mailer"
+	"roving/backend/internal/users"
 )
 
 const (
