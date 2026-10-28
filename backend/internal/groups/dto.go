@@ -32,8 +32,8 @@ type TransferOwnershipRequest struct {
 }
 
 type ListMembersQuery struct {
-	Limit  int `form:"limit"  binding:"omitempty,min=1,max=200"`
-	Offset int `form:"offset" binding:"min=0"`
+	Limit  int    `form:"limit"  binding:"omitempty,min=1,max=200"`
+	Offset int    `form:"offset" binding:"min=0"`
 	Role   string `form:"role" binding:"omitempty,oneof=owner admin moderator member"`
 }
 

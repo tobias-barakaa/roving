@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5"
+	// "github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
 
 	"roving/backend/internal/auth"
@@ -62,27 +62,11 @@ func main() {
 	// groupsService := groups.NewService(db, noopPauser{})
 	// groupsHandler := groups.NewHandler(groupsService, authHandler.RequireAuth())
 
-
-
-
-
-
-
-
-
-
 	groupsRepo := groups.NewRepository(db)
-	groupsService := groups.NewService(groupsRepo, groups.noopPauser{}) 
+	// groupsService := groups.NewService(groupsRepo, groups.noopPauser{})
+	groupsService := groups.NewService(groupsRepo, nil)
 	groupsHandler := groups.NewHandler(groupsService, authHandler.RequireAuth())
-	// ...
-	api := router.Group("/api/v1")
-	authHandler.Routes(api)
-	groupsHandler.Routes(api)
 
-	
-
-
-	
 	go sessionStore.RunCleanup(ctx, time.Hour)
 
 	router := gin.New()
@@ -135,8 +119,8 @@ func main() {
 
 // noopPauser is the archive hook until the scheduling module exists. It keeps
 // the groups archive transaction atomic without importing a future package.
-type noopPauser struct{}
+// type noopPauser struct{}
 
-func (noopPauser) PauseGroupActivity(_ context.Context, _ pgx.Tx, _ string) error {
-	return nil
-}
+// func (noopPauser) PauseGroupActivity(_ context.Context, _ pgx.Tx, _ string) error {
+// 	return nil
+// }

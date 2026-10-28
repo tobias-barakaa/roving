@@ -7,11 +7,18 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/time/rate"
+	"log"
 )
 
 // CORS allows exactly one origin, with credentials (cookies).
 func CORS(origin string) gin.HandlerFunc {
 	return func(c *gin.Context) {
+
+	log.Printf(
+    "Origin check: received=%q expected=%q",
+    c.GetHeader("Origin"),
+    origin,
+		)
 		if c.GetHeader("Origin") == origin {
 			h := c.Writer.Header()
 			h.Set("Access-Control-Allow-Origin", origin)

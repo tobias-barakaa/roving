@@ -24,7 +24,6 @@ type noopPauser struct{}
 // func (noopPauser) PauseGroupActivity(context.Context, pgx.Tx, string) error { return nil }
 func (noopPauser) PauseGroupActivity(context.Context, pgx.Tx, string) error { return nil }
 
-
 type Service struct {
 	repo   *Repository
 	pauser Pauser

@@ -118,7 +118,6 @@ type ListFilter struct {
 	Offset          int
 }
 
-
 // package groups
 
 // import "time"
