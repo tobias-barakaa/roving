@@ -21,6 +21,12 @@ import (
 	"roving/backend/internal/httpx"
 	"roving/backend/internal/mailer"
 	"roving/backend/internal/users"
+    "roving/backend/internal/scheduling"
+    "roving/backend/internal/rooms"
+    "roving/backend/internal/attendance"
+
+
+
 )
 
 func main() {
@@ -67,6 +73,38 @@ func main() {
 	groupsService := groups.NewService(groupsRepo, nil)
 	groupsHandler := groups.NewHandler(groupsService, authHandler.RequireAuth())
 
+
+
+
+
+	schedulingRepo := scheduling.NewRepository(db)
+	schedulingSvc := scheduling.NewService(schedulingRepo, db)
+	schedulingHandler := scheduling.NewHandler(schedulingSvc, authHandler.RequireAuth())
+	
+
+
+
+
+
+	// After scheduling wiring (order doesn't matter here):
+	roomsRepo := rooms.NewRepository(db)
+	roomsSvc := rooms.NewService(roomsRepo, db)
+	roomsHandler := rooms.NewHandler(roomsSvc, authHandler.RequireAuth())
+
+
+
+
+	attendanceRepo := attendance.NewRepository(db)
+	attendanceSvc := attendance.NewService(attendanceRepo, db)
+	attendanceHandler := attendance.NewHandler(attendanceSvc, authHandler.RequireAuth())
+
+
+
+	// 3. START the rolling generator (runs in background)
+	go schedulingSvc.RunGenerator(ctx, time.Hour)
+	
+
+
 	go sessionStore.RunCleanup(ctx, time.Hour)
 
 	router := gin.New()
@@ -90,6 +128,12 @@ func main() {
 	api := router.Group("/api/v1")
 	authHandler.Routes(api)
 	groupsHandler.Routes(api)
+	schedulingHandler.Routes(api)
+	roomsHandler.Routes(api)
+	attendanceHandler.Routes(api)
+
+	
+	
 
 	addr := os.Getenv("API_ADDR")
 	if addr == "" {

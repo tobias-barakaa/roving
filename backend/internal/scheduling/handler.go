@@ -8,7 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"study-platform/backend/internal/auth"
+	"roving/backend/internal/auth"
 )
 
 type Handler struct {
@@ -20,16 +20,20 @@ func NewHandler(svc *Service, requireAuth gin.HandlerFunc) *Handler {
 	return &Handler{svc: svc, requireAuth: requireAuth}
 }
 
+// func (h *Handler) Routes(rg *gin.RouterGroup) {
+// 	g := rg.Group("/groups/:groupId/schedule", h.requireAuth)
+
 func (h *Handler) Routes(rg *gin.RouterGroup) {
-	g := rg.Group("/groups/:groupId/schedule", h.requireAuth)
+	g := rg.Group("/groups/:id/schedule", h.requireAuth)
+
 	{
-		g.POST("/series",       h.createSeries)
-		g.GET("/series/:sid",   h.getSeries)
+		g.POST("/series", h.createSeries)
+		g.GET("/series/:sid", h.getSeries)
 		g.PATCH("/series/:sid", h.updateSeries)
 		g.POST("/series/:sid/end", h.endSeries)
 
-		g.POST("/sessions",     h.createSession)
-		g.GET("/sessions",      h.listSessions)
+		g.POST("/sessions", h.createSession)
+		g.GET("/sessions", h.listSessions)
 		g.GET("/sessions/:sid", h.getSession)
 		g.PATCH("/sessions/:sid", h.updateSession)
 		g.POST("/sessions/:sid/cancel", h.cancelSession)
@@ -43,7 +47,7 @@ func (h *Handler) createSeries(c *gin.Context) {
 	if !bind(c, &req) {
 		return
 	}
-	ser, err := h.svc.CreateSeries(c.Request.Context(), auth.UserID(c), c.Param("groupId"), req)
+	ser, err := h.svc.CreateSeries(c.Request.Context(), auth.UserID(c), c.Param("id"), req)
 	if err != nil {
 		h.writeErr(c, err)
 		return
@@ -89,7 +93,7 @@ func (h *Handler) createSession(c *gin.Context) {
 	if !bind(c, &req) {
 		return
 	}
-	sess, err := h.svc.CreateSession(c.Request.Context(), auth.UserID(c), c.Param("groupId"), req)
+	sess, err := h.svc.CreateSession(c.Request.Context(), auth.UserID(c), c.Param("id"), req)
 	if err != nil {
 		h.writeErr(c, err)
 		return
@@ -111,7 +115,7 @@ func (h *Handler) listSessions(c *gin.Context) {
 	_ = c.ShouldBindQuery(&q)
 
 	f := ListFilter{
-		GroupID:  c.Param("groupId"),
+		GroupID:  c.Param("id"),
 		RoomID:   q.RoomID,
 		SeriesID: q.SeriesID,
 		Status:   q.Status,

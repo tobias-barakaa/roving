@@ -17,16 +17,7 @@ type CreateSeriesRequest struct {
 	EndsOn          *string `json:"endsOn"          binding:"omitempty"` // "YYYY-MM-DD"
 }
 
-type 
-
-
-
-
-
-
-
-
-struct {
+type UpdateSeriesRequest struct {
 	RoomID          *string `json:"roomId"          binding:"omitempty,uuid"`
 	Title           *string `json:"title"           binding:"omitempty,min=1,max=150"`
 	Description     *string `json:"description"     binding:"omitempty,max=2000"`
