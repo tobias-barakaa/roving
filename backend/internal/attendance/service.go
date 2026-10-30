@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"log"
 )
 
 // CheckInWindow is how early (relative to starts_at) an attendee may check in.
@@ -31,6 +32,8 @@ func NewService(repo *Repository, db *pgxpool.Pool) *Service {
 }
 
 // ==================== RSVP (self-only) ====================
+
+
 
 // SetRSVP lets any active group member RSVP to a scheduled session.
 // Called with `actorID == userID` by the handler. If you ever expose a
@@ -129,16 +132,80 @@ func (s *Service) CheckOut(ctx context.Context, actorID, sessionID string) (*Att
 
 // ==================== Self: get own row ====================
 
-func (s *Service) GetMine(ctx context.Context, actorID, sessionID string) (*Attendance, error) {
-	if _, err := s.getSessionForActor(ctx, s.db, sessionID, actorID); err != nil {
-		return nil, err
-	}
-	a, err := s.repo.GetBySessionUser(ctx, s.db, sessionID, actorID)
-	if errors.Is(err, ErrNotFound) {
-		return nil, ErrNotFound
-	}
-	return a, err
+// func (s *Service) GetMine(ctx context.Context, actorID, sessionID string) (*Attendance, error) {
+// 	if _, err := s.getSessionForActor(ctx, s.db, sessionID, actorID); err != nil {
+// 		return nil, err
+// 	}
+// 	a, err := s.repo.GetBySessionUser(ctx, s.db, sessionID, actorID)
+// 	if errors.Is(err, ErrNotFound) {
+// 		return nil, ErrNotFound
+// 	}
+// 	return a, err
+// }
+func (s *Service) GetMine(
+    ctx context.Context,
+    actorID, sessionID string,
+) (*Attendance, error) {
+
+    // Verify that the session exists and the user
+    // is an active member of its group.
+    if _, err := s.getSessionForActor(
+        ctx,
+        s.db,
+        sessionID,
+        actorID,
+    ); err != nil {
+        return nil, err
+    }
+
+    // Retrieve existing attendance or create it.
+    return s.repo.GetOrCreateBySessionUser(
+        ctx,
+        s.db,
+        sessionID,
+        actorID,
+    )
 }
+// func (s *Service) GetMine(
+//     ctx context.Context,
+//     actorID, sessionID string,
+// ) (*Attendance, error) {
+
+//     if _, err := s.getSessionForActor(ctx, s.db, sessionID, actorID); err != nil {
+//         return nil, err
+//     }
+
+//     log.Println("[attendance] About to get or create attendance")
+
+//     a, err := s.repo.GetOrCreateBySessionUser(
+//         ctx,
+//         s.db,
+//         sessionID,
+//         actorID,
+//     )
+
+//     if err != nil {
+//         log.Printf("[attendance] GetOrCreateBySessionUser failed: %v", err)
+//         return nil, err
+//     }
+
+//     log.Printf("[attendance] Attendance retrieved: %s", a.ID)
+
+//     return a, nil
+// }
+// }
+// func (s *Service) GetMine(ctx context.Context, actorID, sessionID string) (*Attendance, error) {
+//     if _, err := s.getSessionForActor(ctx, s.db, sessionID, actorID); err != nil {
+//         return nil, err
+//     }
+
+//     a, err := s.repo.GetBySessionUser(ctx, s.db, sessionID, actorID)
+//     if errors.Is(err, ErrNotFound) {
+//         return nil, ErrNotFound
+//     }
+
+//     return a, err
+// }
 
 // ==================== Moderator: mark attendance ====================
 
@@ -223,26 +290,67 @@ func (s *Service) ListRoster(ctx context.Context, actorID, sessionID string, f L
 //
 // Anti-enumeration: if the actor is not in the group, the session is
 // "not found" from their perspective — even though it exists.
-func (s *Service) getSessionForActor(ctx context.Context, ex pgxExecutor, sessionID, actorID string) (*SessionContext, error) {
-	sc, err := s.repo.GetSessionContext(ctx, ex, sessionID)
-	if errors.Is(err, ErrSessionNotFound) {
-		return nil, ErrSessionNotFound
-	}
-	if err != nil {
-		return nil, err
-	}
-	if _, err := s.requireGroupMember(ctx, ex, sc.GroupID, actorID); err != nil {
-		// Map ErrNotFound → ErrSessionNotFound to keep the abstraction
-		// coherent: "you can't see this session" and "this session doesn't
-		// exist for you" are the same answer.
-		if errors.Is(err, ErrNotFound) {
-			return nil, ErrSessionNotFound
-		}
-		return nil, err
-	}
-	return sc, nil
-}
+// func (s *Service) getSessionForActor(ctx context.Context, ex pgxExecutor, sessionID, actorID string) (*SessionContext, error) {
+// 	sc, err := s.repo.GetSessionContext(ctx, ex, sessionID)
+// 	if errors.Is(err, ErrSessionNotFound) {
+// 		return nil, ErrSessionNotFound
+// 	}
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	if _, err := s.requireGroupMember(ctx, ex, sc.GroupID, actorID); err != nil {
+// 		// Map ErrNotFound → ErrSessionNotFound to keep the abstraction
+// 		// coherent: "you can't see this session" and "this session doesn't
+// 		// exist for you" are the same answer.
+// 		if errors.Is(err, ErrNotFound) {
+// 			return nil, ErrSessionNotFound
+// 		}
+// 		return nil, err
+// 	}
+// 	return sc, nil
+// }
+// 
+// 
+// 
 
+
+
+func (s *Service) getSessionForActor(
+    ctx context.Context,
+    ex pgxExecutor,
+    sessionID, actorID string,
+) (*SessionContext, error) {
+
+    sc, err := s.repo.GetSessionContext(ctx, ex, sessionID)
+
+    if err != nil {
+        log.Printf("[attendance] GetSessionContext failed: %v", err)
+
+        if errors.Is(err, ErrSessionNotFound) {
+            return nil, ErrSessionNotFound
+        }
+
+        return nil, err
+    }
+
+    log.Printf("[attendance] Session found: %s", sc.ID)
+
+    _, err = s.requireGroupMember(ctx, ex, sc.GroupID, actorID)
+
+    if err != nil {
+        log.Printf("[attendance] requireGroupMember failed: %v", err)
+
+        if errors.Is(err, ErrNotFound) {
+            return nil, ErrSessionNotFound
+        }
+
+        return nil, err
+    }
+
+    log.Printf("[attendance] Group membership verified")
+
+    return sc, nil
+}
 // requireSessionMember: gate for reading (roster). Returns the session and
 // the caller's role.
 func (s *Service) requireSessionMember(ctx context.Context, ex pgxExecutor, sessionID, actorID string) (*SessionContext, GroupRole, error) {

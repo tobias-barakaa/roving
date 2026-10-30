@@ -35,6 +35,29 @@ func (r *Repository) GetSessionContext(ctx context.Context, ex pgxExecutor, sess
 	return &s, err
 }
 
+
+
+func (r *Repository) GetOrCreateBySessionUser(
+    ctx context.Context,
+    ex pgxExecutor,
+    sessionID, userID string,
+) (*Attendance, error) {
+
+    // Create the attendance record if it doesn't exist.
+    // ON CONFLICT prevents duplicate records.
+    _, err := ex.Exec(ctx,
+        `INSERT INTO session_attendance (session_id, user_id)
+         VALUES ($1::uuid, $2::uuid)
+         ON CONFLICT (session_id, user_id) DO NOTHING`,
+        sessionID, userID,
+    )
+    if err != nil {
+        return nil, err
+    }
+
+    // Retrieve the existing or newly created record.
+    return r.GetBySessionUser(ctx, ex, sessionID, userID)
+}
 // ---------- attendance rows ----------
 
 // GetBySessionUser returns the existing row, or ErrNotFound.
