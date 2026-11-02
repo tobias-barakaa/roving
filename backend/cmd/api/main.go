@@ -24,6 +24,7 @@ import (
     "roving/backend/internal/scheduling"
     "roving/backend/internal/rooms"
     "roving/backend/internal/attendance"
+    "roving/backend/internal/focus"
 
 
 
@@ -99,6 +100,11 @@ func main() {
 	attendanceHandler := attendance.NewHandler(attendanceSvc, authHandler.RequireAuth())
 
 
+	focusRepo := focus.NewRepository(db)
+	focusSvc := focus.NewService(focusRepo, db)
+	focusHandler := focus.NewHandler(focusSvc, authHandler.RequireAuth())
+
+
 
 	// 3. START the rolling generator (runs in background)
 	go schedulingSvc.RunGenerator(ctx, time.Hour)
@@ -131,6 +137,7 @@ func main() {
 	schedulingHandler.Routes(api)
 	roomsHandler.Routes(api)
 	attendanceHandler.Routes(api)
+	focusHandler.Routes(api)
 
 	
 	

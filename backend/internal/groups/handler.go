@@ -38,9 +38,29 @@ func (h *Handler) Routes(rg *gin.RouterGroup) {
 	g.PATCH("/:id/members/:userId", h.changeRole)
 	g.DELETE("/:id/members/:userId", h.removeMember)
 	g.POST("/:id/transfer-ownership", h.transferOwnership)
+
+
+
+
+
+
+
+
+	// --- join request lifecycle (member-side) ---
+		g.POST("/:id/join", h.requestToJoin)         
+		g.DELETE("/:id/join", h.cancelJoinRequest)   
+		g.POST("/:id/leave", h.leaveGroup)           
+	
+		// --- join request lifecycle (admin-side) ---
+		g.GET("/:id/requests", h.listJoinRequests)                    
+		g.POST("/:id/requests/:userId/approve", h.approveJoinRequest) 
+		g.POST("/:id/requests/:userId/reject", h.rejectJoinRequest)   
+	
+		// --- invitation lifecycle (invitee-side) ---
+		g.POST("/:id/invites/accept", h.acceptInvite)   
+		g.POST("/:id/invites/decline", h.declineInvite) 
 }
 
-// ---------- handlers ----------
 
 func (h *Handler) create(c *gin.Context) {
 	var req CreateGroupRequest
@@ -213,6 +233,25 @@ func bind(c *gin.Context, dst any) bool {
 
 // writeErr is the single error → HTTP mapping for the whole groups package.
 // Add cases here, not in handlers.
+// func (h *Handler) writeErr(c *gin.Context, err error) {
+// 	switch {
+// 	case errors.Is(err, ErrNotFound), errors.Is(err, ErrNotMember):
+// 		c.JSON(http.StatusNotFound, gin.H{"error": "group not found"})
+// 	case errors.Is(err, ErrForbidden):
+// 		c.JSON(http.StatusForbidden, gin.H{"error": "you do not have permission to do that"})
+// 	case errors.Is(err, ErrSlugTaken):
+// 		c.JSON(http.StatusConflict, gin.H{"error": "that slug is already in use"})
+// 	case errors.Is(err, ErrAlreadyMember):
+// 		c.JSON(http.StatusConflict, gin.H{"error": "user is already a member"})
+// 	case errors.Is(err, ErrInvalidRole):
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid role"})
+// 	case errors.Is(err, ErrLastOwner):
+// 		c.JSON(http.StatusConflict, gin.H{"error": "the group must have an active owner"})
+// 	default:
+// 		h.svc.Log(err)
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "something went wrong"})
+// 	}
+// }
 func (h *Handler) writeErr(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, ErrNotFound), errors.Is(err, ErrNotMember):
@@ -227,6 +266,23 @@ func (h *Handler) writeErr(c *gin.Context, err error) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid role"})
 	case errors.Is(err, ErrLastOwner):
 		c.JSON(http.StatusConflict, gin.H{"error": "the group must have an active owner"})
+
+	// --- NEW ---
+	case errors.Is(err, ErrJoinRequestExists):
+		c.JSON(http.StatusConflict, gin.H{"error": "you already have a pending request to join this group"})
+	case errors.Is(err, ErrInviteExists):
+		c.JSON(http.StatusConflict, gin.H{"error": "this user already has a pending invitation"})
+	case errors.Is(err, ErrAlreadyActive):
+		c.JSON(http.StatusConflict, gin.H{"error": "you are already an active member of this group"})
+	case errors.Is(err, ErrNotPending):
+		c.JSON(http.StatusConflict, gin.H{"error": "this membership is not pending"})
+	case errors.Is(err, ErrGroupArchived):
+		c.JSON(http.StatusConflict, gin.H{"error": "this group is archived"})
+	case errors.Is(err, ErrNotInvited):
+		c.JSON(http.StatusForbidden, gin.H{"error": "you were not invited to this group"})
+	case errors.Is(err, ErrNotAuthorizedLeave):
+		c.JSON(http.StatusForbidden, gin.H{"error": "an owner must transfer ownership before leaving"})
+
 	default:
 		h.svc.Log(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "something went wrong"})

@@ -220,38 +220,194 @@ func (s *Service) ListMembers(ctx context.Context, actorID, groupID string, q Li
 // Invite adds a user directly (no email invitation flow yet). Caller must be
 // admin+; the target user must exist (FK does that); target must not already
 // be a member.
-func (s *Service) Invite(ctx context.Context, actorID, groupID string, req InviteMemberRequest) error {
-	tx, err := s.repo.db.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
+// 
 
-	actorRole, err := s.requireRole(ctx, tx, groupID, actorID, RoleAdmin)
-	if err != nil {
-		return err
-	}
 
-	targetRole := ParseRole(req.Role)
-	if !ValidAssignableRole(targetRole) {
-		return ErrInvalidRole
-	}
-	// Admin cannot promote to a role >= their own.
-	if targetRole >= actorRole {
-		return ErrForbidden
-	}
 
-	if err := s.repo.AddMember(ctx, tx, groupID, req.UserID, targetRole.String(), actorID); err != nil {
-		if IsUniqueViolation(err) {
-			return ErrAlreadyMember
-		}
-		if IsForeignKeyViolation(err) {
-			return ErrNotFound // user ID doesn't exist
-		}
-		return err
-	}
-	return tx.Commit(ctx)
+
+
+
+func (s *Service) Invite(
+    ctx context.Context,
+    actorID, groupID string,
+    req InviteMemberRequest,
+) (*Membership, error) {
+    tx, err := s.repo.db.Begin(ctx)
+    if err != nil {
+        return nil, err
+    }
+    defer tx.Rollback(ctx)
+
+    actorRole, err := s.requireRole(
+        ctx, tx, groupID, actorID, RoleAdmin,
+    )
+    if err != nil {
+        return nil, err
+    }
+
+    targetRole := ParseRole(req.Role)
+    if !ValidAssignableRole(targetRole) {
+        return nil, ErrInvalidRole
+    }
+
+    if targetRole >= actorRole {
+        return nil, ErrForbidden
+    }
+
+    // Try to find any existing row (active / pending / left / suspended).
+    existing, err := s.repo.FindMembershipAnyStatus(
+        ctx, tx, groupID, req.UserID,
+    )
+
+    switch {
+    case err == nil:
+        switch existing.Status {
+        case "active":
+            return nil, ErrAlreadyMember
+
+        case "pending":
+            return nil, ErrInviteExists
+
+        case "left", "suspended":
+            if err := s.repo.ReopenPendingMembership(
+                ctx, tx, groupID, req.UserID,
+                targetRole.String(), &actorID,
+            ); err != nil {
+                return nil, err
+            }
+
+        default:
+            return nil, ErrAlreadyMember
+        }
+
+    case errors.Is(err, ErrNotFound):
+        if err := s.repo.InsertPendingMembership(
+            ctx, tx, groupID, req.UserID,
+            targetRole.String(), &actorID,
+        ); err != nil {
+            if IsUniqueViolation(err) {
+                return nil, ErrInviteExists
+            }
+            if IsForeignKeyViolation(err) {
+                return nil, ErrNotFound
+            }
+            return nil, err
+        }
+
+    default:
+        return nil, err
+    }
+
+    if err := tx.Commit(ctx); err != nil {
+        return nil, err
+    }
+
+    return s.repo.GetMembership(
+        ctx,
+        s.repo.db,
+        groupID,
+        req.UserID,
+    )
 }
+
+
+
+// func (s *Service) Invite(ctx context.Context, actorID, groupID string, req InviteMemberRequest) (*Membership, error) {
+// // func (s *Service) Invite(ctx context.Context, actorID, groupID string, req InviteMemberRequest) error {
+// 	tx, err := s.repo.db.Begin(ctx)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer tx.Rollback(ctx)
+
+// 	actorRole, err := s.requireRole(ctx, tx, groupID, actorID, RoleAdmin)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	targetRole := ParseRole(req.Role)
+// 	if !ValidAssignableRole(targetRole) {
+// 		return ErrInvalidRole
+// 	}
+// 	if targetRole >= actorRole {
+// 		return ErrForbidden
+// 	}
+
+// 	// Try to find any existing row (active / pending / left / suspended).
+// 	existing, err := s.repo.FindMembershipAnyStatus(ctx, tx, groupID, req.UserID)
+// 	switch {
+// 	case err == nil:
+// 		switch existing.Status {
+// 		case "active":
+// 			return ErrAlreadyMember
+// 		case "pending":
+// 			return ErrInviteExists
+// 		case "left", "suspended":
+// 			if err := s.repo.ReopenPendingMembership(ctx, tx, groupID, req.UserID,
+// 				targetRole.String(), &actorID); err != nil {
+// 				return err
+// 			}
+// 		default:
+// 			return ErrAlreadyMember
+// 		}
+// 	case errors.Is(err, ErrNotFound):
+// 		if err := s.repo.InsertPendingMembership(ctx, tx, groupID, req.UserID,
+// 			targetRole.String(), &actorID); err != nil {
+// 			if IsUniqueViolation(err) {
+// 				return ErrInviteExists
+// 			}
+// 			if IsForeignKeyViolation(err) {
+// 				return ErrNotFound
+// 			}
+// 			return err
+// 		}
+// 	default:
+// 		return err
+// 	}
+// 	if err := tx.Commit(ctx); err != nil {
+//     return nil, err
+// 	}
+	
+// 	return s.repo.GetMembership(
+//     ctx,
+//     s.repo.db,
+//     groupID,
+//     req.UserID,
+// 	)
+// }
+
+
+// func (s *Service) Invite(ctx context.Context, actorID, groupID string, req InviteMemberRequest) error {
+// 	tx, err := s.repo.db.Begin(ctx)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer tx.Rollback(ctx)
+
+// 	actorRole, err := s.requireRole(ctx, tx, groupID, actorID, RoleAdmin)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	targetRole := ParseRole(req.Role)
+// 	if !ValidAssignableRole(targetRole) {
+// 		return ErrInvalidRole
+// 	}
+// 	// Admin cannot promote to a role >= their own.
+// 	if targetRole >= actorRole {
+// 		return ErrForbidden
+// 	}
+
+// 	if err := s.repo.AddMember(ctx, tx, groupID, req.UserID, targetRole.String(), actorID); err != nil {
+// 		if IsUniqueViolation(err) {
+// 			return ErrAlreadyMember
+// 		}
+// 		if IsForeignKeyViolation(err) {
+// 			return ErrNotFound // user ID doesn't exist
+// 		}
+// 		return err
+// 	}
+// 	return tx.Commit(ctx)
+// }
 
 // ChangeRole: admin can change member/moderator; owner can change anyone but
 // themselves (must use TransferOwnership to hand off ownership).
@@ -440,6 +596,287 @@ func (s *Service) Log(err error) {
 	if err != nil && !errors.Is(err, ErrNotFound) && !errors.Is(err, ErrForbidden) {
 		log.Printf("groups: %v", err)
 	}
+}
+
+
+
+
+
+
+
+// RequestToJoin is what a user calls to ask to join a group.
+//
+// Behavior by visibility and prior state:
+//   - Group archived                       → ErrGroupArchived
+//   - Active member                        → ErrAlreadyMember
+//   - Pending request/invite already open  → ErrJoinRequestExists (or ErrInviteExists)
+//   - Suspended                            → ErrForbidden (admin must unsuspend)
+//   - Left or brand-new                    → insert pending, invited_by=NULL
+//   - Public group + brand-new             → activate immediately (no friction)
+//
+// Public groups skip the approval queue because that's the whole point of
+// "public" — the user can still be removed later, and the discovery page
+// makes joining a one-click action. Private groups go through approval.
+func (s *Service) RequestToJoin(ctx context.Context, actorID, groupID string) (*Membership, error) {
+	tx, err := s.repo.db.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	g, err := s.repo.GetGroupByID(ctx, tx, groupID)
+	if errors.Is(err, ErrNotFound) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if g.Archived() {
+		return nil, ErrGroupArchived
+	}
+
+	existing, err := s.repo.FindMembershipAnyStatus(ctx, tx, groupID, actorID)
+	switch {
+	case err == nil:
+		switch existing.Status {
+		case "active":
+			return nil, ErrAlreadyMember
+		case "pending":
+			if existing.InvitedBy != nil {
+				return nil, ErrInviteExists // they have an invite pending; they should accept it
+			}
+			return nil, ErrJoinRequestExists
+		case "suspended":
+			return nil, ErrForbidden
+		case "left":
+			// Re-request: resurrect the row.
+			if err := s.repo.ReopenPendingMembership(ctx, tx, groupID, actorID,
+				"member", nil); err != nil {
+				return nil, err
+			}
+		}
+	case !errors.Is(err, ErrNotFound):
+		return nil, err
+	default:
+		// brand-new membership
+		if err := s.repo.InsertPendingMembership(ctx, tx, groupID, actorID,
+			"member", nil); err != nil {
+			if IsUniqueViolation(err) {
+				return nil, ErrJoinRequestExists
+			}
+			return nil, err
+		}
+	}
+
+	// Public groups auto-approve — but only if there's no competing invite
+	// (invitations are explicit; if an admin invited you and you also
+	// requested, the invite's target role wins). Today we don't have both
+	// because RequestToJoin rejects when an invite is pending, so this is
+	// just the plain auto-activate.
+	if g.Visibility == "public" {
+		if err := s.repo.ActivateMembership(ctx, tx, groupID, actorID, "member"); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	// Re-read so the caller sees the final state (active or pending).
+	return s.repo.GetMembership(ctx, s.repo.db, groupID, actorID)
+}
+
+// CancelJoinRequest lets a user withdraw their own pending request
+// (but not a pending invitation — that's a DeclineInvite).
+func (s *Service) CancelJoinRequest(ctx context.Context, actorID, groupID string) error {
+	tx, err := s.repo.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	m, err := s.repo.GetPendingMembership(ctx, tx, groupID, actorID)
+	if err != nil {
+		return err // ErrNotPending
+	}
+	if m.InvitedBy != nil {
+		return ErrForbidden // that's an invitation; use DeclineInvite
+	}
+	if err := s.repo.MarkMembershipLeft(ctx, tx, groupID, actorID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// LeaveGroup lets an active member leave on their own. Owners cannot — they
+// must TransferOwnership first. This is the self-service counterpart to
+// RemoveMember (which can also self-remove but is admin-shaped).
+func (s *Service) LeaveGroup(ctx context.Context, actorID, groupID string) error {
+	tx, err := s.repo.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	m, err := s.repo.GetMembership(ctx, tx, groupID, actorID)
+	if errors.Is(err, ErrNotFound) {
+		return ErrNotMember
+	}
+	if err != nil {
+		return err
+	}
+	if m.Status != "active" {
+		return ErrForbidden
+	}
+	if m.Role == RoleOwner {
+		return ErrNotAuthorizedLeave
+	}
+	// Use status='left' rather than DELETE so re-requesting doesn't trip
+	// the UNIQUE (group_id, user_id) constraint — RequestToJoin handles
+	// the 'left' → 'pending' transition.
+	if err := s.repo.MarkMembershipLeft(ctx, tx, groupID, actorID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// ==================== Join requests (admin-side) ====================
+
+// ListJoinRequests returns pending memberships for the group. By default
+// (kind="") it returns both pending requests and pending invitations —
+// useful for an admin dashboard. Use kind="requests" to see only user-
+// initiated ones, kind="invites" for admin-initiated.
+func (s *Service) ListJoinRequests(ctx context.Context, actorID, groupID string, q ListPendingQuery) ([]PendingEntry, error) {
+	if _, err := s.requireRole(ctx, s.repo.db, groupID, actorID, RoleModerator); err != nil {
+		return nil, err
+	}
+	return s.repo.ListPendingForGroup(ctx, s.repo.db, groupID, q.Kind, q.Limit, q.Offset)
+}
+
+// ApproveJoinRequest flips a pending membership to active. Works for both
+// a user-initiated request (approve = accept them into the group) and an
+// admin-initiated invitation where a second admin is confirming on behalf
+// of the invitee — but the latter is unusual; normally the invitee calls
+// AcceptInvite. We allow it so a moderator can force-add without waiting.
+//
+// The requested role is bounded: an admin cannot promote above themselves,
+// and cannot grant 'owner' (that's TransferOwnership).
+func (s *Service) ApproveJoinRequest(ctx context.Context, actorID, groupID, targetUserID string, req ApproveJoinRequest) error {
+	tx, err := s.repo.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	actorRole, err := s.requireRole(ctx, tx, groupID, actorID, RoleModerator)
+	if err != nil {
+		return err
+	}
+
+	pending, err := s.repo.GetPendingMembership(ctx, tx, groupID, targetUserID)
+	if err != nil {
+		return err // ErrNotPending
+	}
+
+	// Default: whatever the pending row already says (usually 'member').
+	finalRole := pending.Role
+	if req.Role != "" {
+		finalRole = ParseRole(req.Role)
+		if !ValidAssignableRole(finalRole) {
+			return ErrInvalidRole
+		}
+	}
+	if finalRole >= actorRole {
+		return ErrForbidden
+	}
+
+	if err := s.repo.ActivateMembership(ctx, tx, groupID, targetUserID, finalRole.String()); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// RejectJoinRequest marks a pending membership as left (rejected). Works on
+// both pending requests and pending invitations that an admin is revoking.
+func (s *Service) RejectJoinRequest(ctx context.Context, actorID, groupID, targetUserID string) error {
+	tx, err := s.repo.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := s.requireRole(ctx, tx, groupID, actorID, RoleModerator); err != nil {
+		return err
+	}
+	if _, err := s.repo.GetPendingMembership(ctx, tx, groupID, targetUserID); err != nil {
+		return err // ErrNotPending
+	}
+	if err := s.repo.MarkMembershipLeft(ctx, tx, groupID, targetUserID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// ==================== Invitations (invitee-side) ====================
+
+// ListMyInvites returns pending invitations for the caller. Used by the
+// "you have invites" page. Returns every group where the caller has a
+// pending row and invited_by IS NOT NULL.
+func (s *Service) ListMyInvites(ctx context.Context, actorID string) ([]PendingEntry, error) {
+	return s.repo.ListPendingForUser(ctx, s.repo.db, actorID)
+}
+
+// AcceptInvite is the invitee's "yes". Only the invitee can call this.
+func (s *Service) AcceptInvite(ctx context.Context, actorID, groupID string) error {
+	tx, err := s.repo.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	m, err := s.repo.GetPendingMembership(ctx, tx, groupID, actorID)
+	if err != nil {
+		return err // ErrNotPending
+	}
+	if m.InvitedBy == nil {
+		return ErrNotInvited // they have a request pending, not an invite
+	}
+
+	// Confirm the group isn't archived.
+	g, err := s.repo.GetGroupByID(ctx, tx, groupID)
+	if err != nil {
+		return err
+	}
+	if g.Archived() {
+		return ErrGroupArchived
+	}
+
+	if err := s.repo.ActivateMembership(ctx, tx, groupID, actorID, m.Role.String()); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// DeclineInvite is the invitee's "no". Marks the row left, so the admin
+// must explicitly re-invite to reopen (which reuses ReopenPendingMembership).
+func (s *Service) DeclineInvite(ctx context.Context, actorID, groupID string) error {
+	tx, err := s.repo.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	m, err := s.repo.GetPendingMembership(ctx, tx, groupID, actorID)
+	if err != nil {
+		return err
+	}
+	if m.InvitedBy == nil {
+		return ErrNotInvited
+	}
+	if err := s.repo.MarkMembershipLeft(ctx, tx, groupID, actorID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // package groups

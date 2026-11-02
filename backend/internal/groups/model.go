@@ -15,7 +15,18 @@ var (
 	ErrLastOwner     = errors.New("cannot remove or demote the last owner")
 	ErrAlreadyMember = errors.New("user is already a member of this group")
 	ErrNotMember     = errors.New("user is not a member of this group")
+
+	ErrJoinRequestExists   = errors.New("you already have a pending request to join this group")
+	ErrNotPending          = errors.New("this membership is not pending")
+	ErrAlreadyActive       = errors.New("you are already an active member of this group")
+	ErrGroupArchived       = errors.New("this group is archived")
+	ErrInviteExists        = errors.New("this user already has a pending invitation")
+	ErrNotInvited          = errors.New("you were not invited to this group")
+	ErrNotAuthorizedLeave  = errors.New("an owner must transfer ownership before leaving")
 )
+
+
+
 
 // Role is the caller's privilege level inside a group, ordered by privilege.
 // Comparisons like `role >= RoleAdmin` are the entire authorization vocabulary
@@ -104,6 +115,8 @@ type MemberSummary struct {
 	Role        Role
 	Status      string
 	JoinedAt    *time.Time
+	InvitedBy   *string  
+
 }
 
 // ListFilter drives List().

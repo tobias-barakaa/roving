@@ -347,6 +347,251 @@ func fmtSlugSuffix(base string, n int) string {
 	return strings.Trim(s, "-")
 }
 
+
+
+
+
+
+
+
+
+
+
+
+func (r *Repository) InsertPendingMembership(ctx context.Context, ex pgxExecutor,
+	groupID, userID, role string, invitedBy *string) error {
+	_, err := ex.Exec(ctx,
+		`INSERT INTO group_memberships (group_id, user_id, role, status, invited_by)
+		 VALUES ($1::uuid, $2::uuid, $3, 'pending', $4::uuid)`,
+		groupID, userID, role, invitedBy)
+	return err
+}
+
+// ActivateMembership flips a pending row to active and stamps joined_at.
+// The WHERE status='pending' makes it safe against a concurrent approve/reject.
+func (r *Repository) ActivateMembership(ctx context.Context, ex pgxExecutor,
+	groupID, userID, role string) error {
+	tag, err := ex.Exec(ctx,
+		`UPDATE group_memberships
+		    SET status = 'active', role = $3, joined_at = now()
+		  WHERE group_id = $1::uuid AND user_id = $2::uuid AND status = 'pending'`,
+		groupID, userID, role)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotPending
+	}
+	return nil
+}
+
+// MarkMembershipLeft is used for rejecting a join request and for
+// accepting a "no" to an invitation. We keep the row (status='left') rather
+// than delete it so that the UNIQUE (group_id, user_id) constraint prevents
+// re-inviting for free — the admin has to re-open the request explicitly
+// if they change their mind. (If you want simpler semantics, replace this
+// with DELETE.)
+func (r *Repository) MarkMembershipLeft(ctx context.Context, ex pgxExecutor,
+	groupID, userID string) error {
+	tag, err := ex.Exec(ctx,
+		`UPDATE group_memberships SET status = 'left'
+		  WHERE group_id = $1::uuid AND user_id = $2::uuid AND status = 'pending'`,
+		groupID, userID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotPending
+	}
+	return nil
+}
+
+// GetPendingMembership fetches a pending row with a lock. Used by
+// ApproveJoinRequest / RejectJoinRequest / AcceptInvite so two admins
+// pressing "Approve" simultaneously can't both succeed.
+func (r *Repository) GetPendingMembership(ctx context.Context, ex pgxExecutor,
+	groupID, userID string) (*Membership, error) {
+	var m Membership
+	var roleStr string
+	err := ex.QueryRow(ctx,
+		`SELECT id::text, group_id::text, user_id::text, role::text, status,
+		        invited_by::text, joined_at, created_at
+		   FROM group_memberships
+		  WHERE group_id = $1::uuid AND user_id = $2::uuid AND status = 'pending'
+		  FOR UPDATE`,
+		groupID, userID,
+	).Scan(&m.ID, &m.GroupID, &m.UserID, &roleStr, &m.Status,
+		&m.InvitedBy, &m.JoinedAt, &m.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotPending
+	}
+	if err != nil {
+		return nil, err
+	}
+	m.Role = ParseRole(roleStr)
+	return &m, nil
+}
+
+// ReopenPendingMembership is used when an admin re-invites a user who
+// previously left (status='left'). It resurrects the existing row so the
+// UNIQUE constraint doesn't block us.
+func (r *Repository) ReopenPendingMembership(ctx context.Context, ex pgxExecutor,
+	groupID, userID, role string, invitedBy *string) error {
+	tag, err := ex.Exec(ctx,
+		`UPDATE group_memberships
+		    SET status = 'pending', role = $3, invited_by = $4::uuid, joined_at = NULL
+		  WHERE group_id = $1::uuid AND user_id = $2::uuid AND status IN ('left', 'suspended')`,
+		groupID, userID, role, invitedBy)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// ListPendingForGroup returns pending memberships (invites + requests) with
+// user info joined. The `kind` filter selects one or the other.
+func (r *Repository) ListPendingForGroup(ctx context.Context, ex pgxExecutor,
+	groupID, kind string, limit, offset int) ([]PendingEntry, error) {
+	rows, err := ex.Query(ctx,
+		`SELECT g.id::text, g.created_by::text, g.name, g.slug, g.description,
+		        g.visibility, g.archived_at, g.created_at, g.updated_at,
+		        gm.user_id::text, u.display_name, u.email, gm.role::text,
+		        gm.invited_by::text, gm.created_at
+		   FROM group_memberships gm
+		   JOIN study_groups g ON g.id = gm.group_id
+		   JOIN users u       ON u.id = gm.user_id
+		  WHERE gm.group_id = $1::uuid AND gm.status = 'pending'
+		    AND ($2 = '' OR ($2 = 'invites'  AND gm.invited_by IS NOT NULL)
+		                  OR ($2 = 'requests' AND gm.invited_by IS NULL))
+		  ORDER BY gm.created_at DESC
+		  LIMIT $3 OFFSET $4`,
+		groupID, kind, normalizeLimit(limit), offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []PendingEntry
+	for rows.Next() {
+		var e PendingEntry
+		var roleStr string
+		if err := rows.Scan(&e.Group.ID, &e.Group.CreatedBy, &e.Group.Name, &e.Group.Slug,
+			&e.Group.Description, &e.Group.Visibility, &e.Group.ArchivedAt,
+			&e.Group.CreatedAt, &e.Group.UpdatedAt,
+			&e.UserID, &e.DisplayName, &e.Email, &roleStr,
+			&e.InvitedBy, &e.CreatedAt); err != nil {
+			return nil, err
+		}
+		e.Role = ParseRole(roleStr)
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+// ListPendingForUser returns every pending membership this user has — used
+// by the "my invitations" screen so a user can see what groups are waiting
+// on them.
+func (r *Repository) ListPendingForUser(ctx context.Context, ex pgxExecutor,
+	userID string) ([]PendingEntry, error) {
+	rows, err := ex.Query(ctx,
+		`SELECT g.id::text, g.created_by::text, g.name, g.slug, g.description,
+		        g.visibility, g.archived_at, g.created_at, g.updated_at,
+		        gm.user_id::text, u.display_name, u.email, gm.role::text,
+		        gm.invited_by::text, gm.created_at
+		   FROM group_memberships gm
+		   JOIN study_groups g ON g.id = gm.group_id
+		   JOIN users u       ON u.id = gm.user_id
+		  WHERE gm.user_id = $1::uuid AND gm.status = 'pending'
+		    AND gm.invited_by IS NOT NULL   -- only invitations, not your own requests
+		    AND g.archived_at IS NULL
+		  ORDER BY gm.created_at DESC`,
+		userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []PendingEntry
+	for rows.Next() {
+		var e PendingEntry
+		var roleStr string
+		if err := rows.Scan(&e.Group.ID, &e.Group.CreatedBy, &e.Group.Name, &e.Group.Slug,
+			&e.Group.Description, &e.Group.Visibility, &e.Group.ArchivedAt,
+			&e.Group.CreatedAt, &e.Group.UpdatedAt,
+			&e.UserID, &e.DisplayName, &e.Email, &roleStr,
+			&e.InvitedBy, &e.CreatedAt); err != nil {
+			return nil, err
+		}
+		e.Role = ParseRole(roleStr)
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+// FindMembershipAnyStatus returns the row whether active, pending, or left.
+// Used by RequestToJoin to decide "already a member / already requested /
+// previously left and can re-request".
+func (r *Repository) FindMembershipAnyStatus(ctx context.Context, ex pgxExecutor,
+	groupID, userID string) (*Membership, error) {
+	var m Membership
+	var roleStr string
+	err := ex.QueryRow(ctx,
+		`SELECT id::text, group_id::text, user_id::text, role::text, status,
+		        invited_by::text, joined_at, created_at
+		   FROM group_memberships
+		  WHERE group_id = $1::uuid AND user_id = $2::uuid
+		  FOR UPDATE`,
+		groupID, userID,
+	).Scan(&m.ID, &m.GroupID, &m.UserID, &roleStr, &m.Status,
+		&m.InvitedBy, &m.JoinedAt, &m.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	m.Role = ParseRole(roleStr)
+	return &m, nil
+}
+
+
+
+// func (r *Repository) ListMembers(ctx context.Context, ex pgxExecutor, groupID string, f ListMembersQuery) ([]MemberSummary, error) {
+// 	rows, err := ex.Query(ctx,
+// 		`SELECT gm.user_id::text, u.display_name, u.email,
+// 		        gm.role::text, gm.status, gm.joined_at, gm.invited_by::text
+// 		   FROM group_memberships gm
+// 		   JOIN users u ON u.id = gm.user_id
+// 		  WHERE gm.group_id = $1::uuid
+// 		    AND ($2 = '' OR gm.status = $2)
+// 		    AND ($3 = '' OR gm.role = $3)
+// 		  ORDER BY
+// 		    CASE gm.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1
+// 		                 WHEN 'moderator' THEN 2 ELSE 3 END,
+// 		    gm.joined_at NULLS LAST, u.display_name
+// 		  LIMIT $4 OFFSET $5`,
+// 		groupID, f.Status, f.Role, normalizeLimit(f.Limit), f.Offset)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	defer rows.Close()
+
+// 	var out []MemberSummary
+// 	for rows.Next() {
+// 		var m MemberSummary
+// 		var roleStr string
+// 		if err := rows.Scan(&m.UserID, &m.DisplayName, &m.Email,
+// 			&roleStr, &m.Status, &m.JoinedAt, &m.InvitedBy); err != nil {
+// 			return nil, err
+// 		}
+// 		m.Role = ParseRole(roleStr)
+// 		out = append(out, m)
+// 	}
+// 	return out, rows.Err()
+// }
 // package groups
 
 // import (
