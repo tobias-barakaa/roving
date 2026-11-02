@@ -59,7 +59,12 @@ func (h *Handler) Routes(rg *gin.RouterGroup) {
 		// --- invitation lifecycle (invitee-side) ---
 		g.POST("/:id/invites/accept", h.acceptInvite)   
 		g.POST("/:id/invites/decline", h.declineInvite) 
+
+
 }
+
+
+
 
 
 func (h *Handler) create(c *gin.Context) {
@@ -169,17 +174,36 @@ func (h *Handler) listMembers(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"members": out})
 }
 
+// func (h *Handler) invite(c *gin.Context) {
+// 	var req InviteMemberRequest
+// 	if !bind(c, &req) {
+// 		return
+// 	}
+// 	err := h.svc.Invite(c.Request.Context(), auth.UserID(c), c.Param("id"), req)
+// 	if err != nil {
+// 		h.writeErr(c, err)
+// 		return
+// 	}
+// 	c.Status(http.StatusNoContent)
+// }
 func (h *Handler) invite(c *gin.Context) {
-	var req InviteMemberRequest
-	if !bind(c, &req) {
-		return
-	}
-	err := h.svc.Invite(c.Request.Context(), auth.UserID(c), c.Param("id"), req)
-	if err != nil {
-		h.writeErr(c, err)
-		return
-	}
-	c.Status(http.StatusNoContent)
+    var req InviteMemberRequest
+    if !bind(c, &req) {
+        return
+    }
+
+    membership, err := h.svc.Invite(
+        c.Request.Context(),
+        auth.UserID(c),
+        c.Param("id"),
+        req,
+    )
+    if err != nil {
+        h.writeErr(c, err)
+        return
+    }
+
+    c.JSON(http.StatusCreated, membership)
 }
 
 func (h *Handler) changeRole(c *gin.Context) {
@@ -252,6 +276,65 @@ func bind(c *gin.Context, dst any) bool {
 // 		c.JSON(http.StatusInternalServerError, gin.H{"error": "something went wrong"})
 // 	}
 // }
+// func (h *Handler) writeErr(c *gin.Context, err error) {
+// 	switch {
+// 	case errors.Is(err, ErrNotFound), errors.Is(err, ErrNotMember):
+// 		c.JSON(http.StatusNotFound, gin.H{"error": "group not found"})
+// 	case errors.Is(err, ErrForbidden):
+// 		c.JSON(http.StatusForbidden, gin.H{"error": "you do not have permission to do that"})
+// 	case errors.Is(err, ErrSlugTaken):
+// 		c.JSON(http.StatusConflict, gin.H{"error": "that slug is already in use"})
+// 	case errors.Is(err, ErrAlreadyMember):
+// 		c.JSON(http.StatusConflict, gin.H{"error": "user is already a member"})
+// 	case errors.Is(err, ErrInvalidRole):
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid role"})
+// 	case errors.Is(err, ErrLastOwner):
+// 		c.JSON(http.StatusConflict, gin.H{"error": "the group must have an active owner"})
+
+// 	// --- NEW ---
+// 	case errors.Is(err, ErrJoinRequestExists):
+// 		c.JSON(http.StatusConflict, gin.H{"error": "you already have a pending request to join this group"})
+// 	case errors.Is(err, ErrInviteExists):
+// 		c.JSON(http.StatusConflict, gin.H{"error": "this user already has a pending invitation"})
+// 	case errors.Is(err, ErrAlreadyActive):
+// 		c.JSON(http.StatusConflict, gin.H{"error": "you are already an active member of this group"})
+// 	case errors.Is(err, ErrNotPending):
+// 		c.JSON(http.StatusConflict, gin.H{"error": "this membership is not pending"})
+// 	case errors.Is(err, ErrGroupArchived):
+// 		c.JSON(http.StatusConflict, gin.H{"error": "this group is archived"})
+// 	case errors.Is(err, ErrNotInvited):
+// 		c.JSON(http.StatusForbidden, gin.H{"error": "you were not invited to this group"})
+// 	case errors.Is(err, ErrNotAuthorizedLeave):
+// 		c.JSON(http.StatusForbidden, gin.H{"error": "an owner must transfer ownership before leaving"})
+
+// 	default:
+// 		h.svc.Log(err)
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "something went wrong"})
+// 	}
+// }
+
+
+
+// func (h *Handler) inviteByEmail(c *gin.Context) {
+// 	var req InviteByEmailRequest
+// 	if !bind(c, &req) {
+// 		return
+// 	}
+
+// 	membership, err := h.svc.InviteByEmail(
+// 		c.Request.Context(),
+// 		auth.UserID(c),
+// 		c.Param("id"),
+// 		req,
+// 	)
+// 	if err != nil {
+// 		h.writeErr(c, err)
+// 		return
+// 	}
+
+// 	c.JSON(http.StatusCreated, membership)
+// }
+
 func (h *Handler) writeErr(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, ErrNotFound), errors.Is(err, ErrNotMember):
@@ -267,7 +350,7 @@ func (h *Handler) writeErr(c *gin.Context, err error) {
 	case errors.Is(err, ErrLastOwner):
 		c.JSON(http.StatusConflict, gin.H{"error": "the group must have an active owner"})
 
-	// --- NEW ---
+	// --- NEW cases for join/invite lifecycle ---
 	case errors.Is(err, ErrJoinRequestExists):
 		c.JSON(http.StatusConflict, gin.H{"error": "you already have a pending request to join this group"})
 	case errors.Is(err, ErrInviteExists):
@@ -289,6 +372,127 @@ func (h *Handler) writeErr(c *gin.Context, err error) {
 	}
 }
 
+// ---------- join requests (member-side) ----------
+
+// POST /groups/:id/join
+func (h *Handler) requestToJoin(c *gin.Context) {
+	// Body is optional today (Message is reserved for a future schema).
+	var req RequestToJoinRequest
+	_ = c.ShouldBindJSON(&req)
+
+	m, err := h.svc.RequestToJoin(c.Request.Context(), auth.UserID(c), c.Param("id"))
+	if err != nil {
+		h.writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"status":  m.Status,
+		"role":    m.Role.String(),
+		"groupId": m.GroupID,
+	})
+}
+
+// DELETE /groups/:id/join
+func (h *Handler) cancelJoinRequest(c *gin.Context) {
+	err := h.svc.CancelJoinRequest(c.Request.Context(), auth.UserID(c), c.Param("id"))
+	if err != nil {
+		h.writeErr(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// POST /groups/:id/leave
+func (h *Handler) leaveGroup(c *gin.Context) {
+	err := h.svc.LeaveGroup(c.Request.Context(), auth.UserID(c), c.Param("id"))
+	if err != nil {
+		h.writeErr(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// ---------- join requests (admin-side) ----------
+
+// GET /groups/:id/requests?kind=invites|requests&limit=&offset=
+func (h *Handler) listJoinRequests(c *gin.Context) {
+	var q ListPendingQuery
+	if err := c.ShouldBindQuery(&q); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid query"})
+		return
+	}
+	entries, err := h.svc.ListJoinRequests(c.Request.Context(), auth.UserID(c), c.Param("id"), q)
+	if err != nil {
+		h.writeErr(c, err)
+		return
+	}
+	out := make([]PendingEntryResponse, len(entries))
+	for i, e := range entries {
+		out[i] = toPendingEntryResponse(e)
+	}
+	c.JSON(http.StatusOK, gin.H{"pending": out})
+}
+
+// POST /groups/:id/requests/:userId/approve
+func (h *Handler) approveJoinRequest(c *gin.Context) {
+	var req ApproveJoinRequest
+	_ = c.ShouldBindJSON(&req) // optional body: {"role": "..."}
+
+	err := h.svc.ApproveJoinRequest(c.Request.Context(), auth.UserID(c),
+		c.Param("id"), c.Param("userId"), req)
+	if err != nil {
+		h.writeErr(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// POST /groups/:id/requests/:userId/reject
+func (h *Handler) rejectJoinRequest(c *gin.Context) {
+	err := h.svc.RejectJoinRequest(c.Request.Context(), auth.UserID(c),
+		c.Param("id"), c.Param("userId"))
+	if err != nil {
+		h.writeErr(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// ---------- invitations (invitee-side) ----------
+
+// GET /groups/invites
+func (h *Handler) listMyInvites(c *gin.Context) {
+	entries, err := h.svc.ListMyInvites(c.Request.Context(), auth.UserID(c))
+	if err != nil {
+		h.writeErr(c, err)
+		return
+	}
+	out := make([]PendingEntryResponse, len(entries))
+	for i, e := range entries {
+		out[i] = toPendingEntryResponse(e)
+	}
+	c.JSON(http.StatusOK, gin.H{"invites": out})
+}
+
+// POST /groups/:id/invites/accept
+func (h *Handler) acceptInvite(c *gin.Context) {
+	err := h.svc.AcceptInvite(c.Request.Context(), auth.UserID(c), c.Param("id"))
+	if err != nil {
+		h.writeErr(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// POST /groups/:id/invites/decline
+func (h *Handler) declineInvite(c *gin.Context) {
+	err := h.svc.DeclineInvite(c.Request.Context(), auth.UserID(c), c.Param("id"))
+	if err != nil {
+		h.writeErr(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
 // package groups
 
 // import (

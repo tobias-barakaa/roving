@@ -311,6 +311,33 @@ func (s *Service) Invite(
 }
 
 
+func (s *Service) InviteByEmail(
+	ctx context.Context,
+	actorID, groupID string,
+	req InviteByEmailRequest,
+) (*Membership, error) {
+	var userID string
+
+	err := s.repo.db.QueryRow(ctx,
+		`SELECT id::text FROM users WHERE lower(email) = lower($1)`,
+		req.Email,
+	).Scan(&userID)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return s.Invite(ctx, actorID, groupID, InviteMemberRequest{
+		UserID: userID,
+		Role:   req.Role,
+	})
+}
+
+
+
 
 // func (s *Service) Invite(ctx context.Context, actorID, groupID string, req InviteMemberRequest) (*Membership, error) {
 // // func (s *Service) Invite(ctx context.Context, actorID, groupID string, req InviteMemberRequest) error {

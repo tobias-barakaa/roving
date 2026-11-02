@@ -37,6 +37,10 @@ func (h *Handler) Routes(rg *gin.RouterGroup) {
 		g.GET("/sessions/:sid", h.getSession)
 		g.PATCH("/sessions/:sid", h.updateSession)
 		g.POST("/sessions/:sid/cancel", h.cancelSession)
+
+
+		g.POST("/series/:sid/pause",  h.pauseSeries)
+		g.POST("/series/:sid/resume", h.resumeSeries)
 	}
 }
 
@@ -211,4 +215,15 @@ func (h *Handler) writeErr(c *gin.Context, err error) {
 		println("scheduling error:", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "something went wrong"})
 	}
+}
+
+
+
+func (h *Handler) pauseSeries(c *gin.Context)  { h.setStatus(c, h.svc.PauseSeries) }
+func (h *Handler) resumeSeries(c *gin.Context) { h.setStatus(c, h.svc.ResumeSeries) }
+func (h *Handler) setStatus(c *gin.Context, fn func(context.Context, string, string) error) {
+	if err := fn(c.Request.Context(), auth.UserID(c), c.Param("sid")); err != nil {
+		h.writeErr(c, err); return
+	}
+	c.Status(http.StatusNoContent)
 }

@@ -305,3 +305,19 @@ func IsCheckViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23514"
 }
+
+
+func (r *Repository) SetSeriesStatusIfCurrent(
+	ctx context.Context, ex pgxExecutor, id string,
+	from []string, to string,
+) (bool, error) {
+	tag, err := ex.Exec(ctx,
+		`UPDATE study_session_series
+		    SET status = $2
+		  WHERE id = $1::uuid AND status = ANY($3::text[])`,
+		id, to, from)
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() == 1, nil
+}

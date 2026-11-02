@@ -534,3 +534,79 @@ func normalizeTime(s string) (string, error) {
 		return "", fmt.Errorf("time must be HH:MM or HH:MM:SS")
 	}
 }
+
+
+
+// PauseSeries stops generating new occurrences. Existing scheduled
+// occurrences remain — the group still meets; only the plan stops adding
+// future dates. Use EndSeries to also stop the existing occurrences.
+func (s *Service) PauseSeries(ctx context.Context, actorID, seriesID string) error {
+	return s.setSeriesStatus(ctx, actorID, seriesID, "paused", "active")
+}
+
+// ResumeSeries restarts generation from `now` forward. Occurrences that were
+// skipped while paused are NOT backfilled — the paused interval is a hole.
+// This is deliberate: backfilling would dump "phantom" past sessions into
+// attendance.
+func (s *Service) ResumeSeries(ctx context.Context, actorID, seriesID string) error {
+	return s.setSeriesStatus(ctx, actorID, seriesID, "active", "paused")
+}
+
+func (s *Service) setSeriesStatus(ctx context.Context, actorID, seriesID, to, from string) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil { return err }
+	defer tx.Rollback(ctx)
+
+	ser, err := s.repo.GetSeriesByID(ctx, tx, seriesID)
+	if errors.Is(err, ErrNotFound) { return ErrNotFound }
+	if err != nil { return err }
+	if _, err := s.requireGroupRole(ctx, tx, ser.GroupID, actorID, RoleModerator); err != nil {
+		return err
+	}
+
+	ok, err := s.repo.SetSeriesStatusIfCurrent(ctx, tx, seriesID, []string{from}, to)
+	if err != nil { return err }
+	if !ok {
+		return fmt.Errorf("%w: series is %s, not %s", ErrSeriesEnded, ser.Status, from)
+	}
+
+	// On resume, extend the window immediately so the UI isn't empty until
+	// the next worker tick. On pause, do nothing — existing rows stay.
+	if to == "active" {
+		to2 := time.Now().Add(GenerationWindow)
+		if ser.GeneratedUntil != nil && ser.GeneratedUntil.After(time.Now()) {
+			// Already generated ahead; nothing to do.
+		} else {
+			if err := s.generateTx(ctx, tx, ser, time.Now(), to2); err != nil {
+				return err
+			}
+			if _, err := tx.Exec(ctx,
+				`UPDATE study_session_series SET generated_until = $2 WHERE id = $1::uuid`,
+				seriesID, to2); err != nil {
+				return err
+			}
+		}
+	}
+	return tx.Commit(ctx)
+}
+
+
+// ListUpcomingSessions returns scheduled sessions starting at or after `now`,
+// ascending. Cancelled sessions are excluded — you don't "attend" a cancellation.
+func (s *Service) ListUpcomingSessions(ctx context.Context, actorID string, f ListFilter) ([]SessionDetail, error) {
+	now := time.Now().UTC()
+	f.From = &now
+	f.Status = "scheduled"
+	if f.Limit == 0 { f.Limit = 50 }
+	return s.ListSessions(ctx, actorID, f)
+}
+
+// ListPastSessions returns completed sessions that already ended, descending.
+// `study_sessions` has no "ended" flag — "past" is derived from ends_at.
+func (s *Service) ListPastSessions(ctx context.Context, actorID string, f ListFilter) ([]SessionDetail, error) {
+	now := time.Now().UTC()
+	f.To = &now
+	f.Status = "completed"
+	if f.Limit == 0 { f.Limit = 50 }
+	return s.ListSessions(ctx, actorID, f)
+}

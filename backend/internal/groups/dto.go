@@ -164,6 +164,12 @@ func toPendingEntryResponse(e PendingEntry) PendingEntryResponse {
 	}
 }
 
+type InviteByEmailRequest struct {
+	Email string `json:"email" binding:"required,email"`
+	Role  string `json:"role"  binding:"required,oneof=member moderator admin"`
+}
+
+
 // package groups
 
 // import "time"
