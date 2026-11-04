@@ -138,7 +138,13 @@ func (s *Service) generateTx(ctx context.Context, tx pgx.Tx, series *Series, fro
 		return err
 	}
 	for _, start := range starts {
-		end := start.Add(time.Duration(series.DurationSeconds) * time.Second)
+		loc, err := time.LoadLocation(series.Timezone)
+		if err != nil {
+			return fmt.Errorf("load timezone: %w", err)
+		}
+		end := start.In(loc).
+			Add(time.Duration(series.DurationSeconds) * time.Second).
+			UTC()
 		occurrenceStart := start
 		sess := &Session{
 			GroupID:          series.GroupID,
@@ -157,6 +163,7 @@ func (s *Service) generateTx(ctx context.Context, tx pgx.Tx, series *Series, fro
 	}
 	return nil
 }
+
 
 // ==================== Read series ====================
 
@@ -600,6 +607,7 @@ func (s *Service) ListUpcomingSessions(ctx context.Context, actorID string, f Li
 	if f.Limit == 0 { f.Limit = 50 }
 	return s.ListSessions(ctx, actorID, f)
 }
+
 
 // ListPastSessions returns completed sessions that already ended, descending.
 // `study_sessions` has no "ended" flag — "past" is derived from ends_at.

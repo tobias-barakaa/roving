@@ -4,6 +4,7 @@ package attendance
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -22,6 +23,7 @@ func NewHandler(svc *Service, requireAuth gin.HandlerFunc) *Handler {
 func (h *Handler) Routes(rg *gin.RouterGroup) {
 	// All attendance endpoints are rooted at a specific session.
 	g := rg.Group("/sessions/:sid/attendance", h.requireAuth)
+	
 	{
 		// Self-service (any active member)
 		g.GET("/me",           h.getMine)
@@ -34,6 +36,16 @@ func (h *Handler) Routes(rg *gin.RouterGroup) {
 
 		// Moderator (RoleModerator+)
 		g.POST("/:userId/mark", h.mark)
+		g.DELETE("/rsvp", h.clearRSVP)
+		g.GET("", h.listMine)
+		g.GET("/summary", h.getSummary)
+
+
+		g.POST("/:userId/absent", h.markAbsent)   
+		// g.POST("/:userId/excuse", h.excuse)  
+
+
+
 	}
 }
 
@@ -134,6 +146,17 @@ func bind(c *gin.Context, dst any) bool {
 	return true
 }
 
+
+func (h *Handler) clearRSVP(c *gin.Context) {
+	a, err := h.svc.ClearRSVP(c.Request.Context(), auth.UserID(c), c.Param("sid"))
+	if err != nil {
+		h.writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, toAttendanceResponse(a))
+}
+
+
 func (h *Handler) writeErr(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, ErrSessionNotFound), errors.Is(err, ErrNotFound):
@@ -153,4 +176,69 @@ func (h *Handler) writeErr(c *gin.Context, err error) {
 		println("attendance error:", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "something went wrong"})
 	}
+}
+
+
+func (h *Handler) listMine(c *gin.Context) {
+	var q struct {
+		From   string `form:"from"`
+		To     string `form:"to"`
+		Limit  int    `form:"limit"`
+		Offset int    `form:"offset"`
+	}
+	_ = c.ShouldBindQuery(&q)
+
+	var from, to *time.Time
+	if q.From != "" {
+		t, err := time.Parse(time.RFC3339, q.From)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid from"})
+			return
+		}
+		from = &t
+	}
+	if q.To != "" {
+		t, err := time.Parse(time.RFC3339, q.To)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid to"})
+			return
+		}
+		to = &t
+	}
+
+	rows, err := h.svc.ListMyAttendance(c.Request.Context(), auth.UserID(c), from, to, q.Limit, q.Offset)
+	if err != nil {
+		h.writeErr(c, err)
+		return
+	}
+	out := make([]AttendanceResponse, len(rows))
+	for i := range rows {
+		out[i] = toAttendanceResponse(&rows[i])
+	}
+	c.JSON(http.StatusOK, gin.H{"attendance": out})
+}
+
+
+func (h *Handler) getSummary(c *gin.Context) {
+	sum, err := h.svc.GetAttendanceSummary(c.Request.Context(), auth.UserID(c), c.Param("sid"))
+	if err != nil {
+		h.writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, toSummaryResponse(sum))
+}
+
+
+func (h *Handler) markAbsent(c *gin.Context) {
+	var req struct {
+		Reason *string `json:"reason" binding:"omitempty,max=500"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	a, err := h.svc.Mark(c.Request.Context(), auth.UserID(c), c.Param("sid"), c.Param("userId"),
+		MarkAttendanceRequest{Status: AttendanceAbsent, AbsenceReason: req.Reason})
+	if err != nil {
+		h.writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, toAttendanceResponse(a))
 }

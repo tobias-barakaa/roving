@@ -411,12 +411,10 @@ func (s *Service) requireGroupMember(ctx context.Context, ex pgxExecutor, groupI
 func (s *Service) requireTargetGroupMember(ctx context.Context, ex pgxExecutor, groupID, userID string) error {
 	var ok bool
 	err := ex.QueryRow(ctx,
-		`SELECT EXISTS (
-		    SELECT 1 FROM group_memberships
-		     WHERE group_id = $1::uuid AND user_id = $2::uuid
-		       AND status = 'active'
-		     FOR SHARE
-		 )`, groupID, userID,
+		`SELECT 1 FROM group_memberships
+  WHERE group_id = $1::uuid AND user_id = $2::uuid
+    AND status = 'active'
+  FOR SHARE`, groupID, userID,
 	).Scan(&ok)
 	if err != nil {
 		return err
@@ -432,6 +430,47 @@ func (s *Service) requireTargetGroupMember(ctx context.Context, ex pgxExecutor, 
 func (s *Service) RequireSessionMember(ctx context.Context, sessionID, actorID string) error {
 	_, _, err := s.requireSessionMember(ctx, s.db, sessionID, actorID)
 	return err
+}
+
+
+func (s *Service) ClearRSVP(ctx context.Context, actorID, sessionID string) (*Attendance, error) {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	sc, err := s.getSessionForActor(ctx, tx, sessionID, actorID)
+	if err != nil {
+		return nil, err
+	}
+	if sc.Cancelled() {
+		return nil, ErrSessionCancelled
+	}
+	if s.now().After(sc.EndsAt) {
+		return nil, ErrTooLate
+	}
+
+	a, err := s.repo.ClearRSVP(ctx, tx, sessionID, actorID)
+	if err != nil {
+		return nil, err
+	}
+	return a, tx.Commit(ctx)
+}
+
+
+func (s *Service) ListMyAttendance(ctx context.Context, actorID string, from, to *time.Time, limit, offset int) ([]Attendance, error) {
+	// No auth gate needed: you're listing your own rows, and the repo
+	// filters by user_id = actorID. Nobody else can see this endpoint.
+	return s.repo.ListByUser(ctx, s.db, actorID, from, to, limit, offset)
+}
+
+
+func (s *Service) GetAttendanceSummary(ctx context.Context, actorID, sessionID string) (*Summary, error) {
+	if _, _, err := s.requireSessionMember(ctx, s.db, sessionID, actorID); err != nil {
+		return nil, err
+	}
+	return s.repo.GetSummary(ctx, s.db, sessionID)
 }
 
 // sanity: silence unused import when fmt is only used in some branches.

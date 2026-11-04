@@ -17,6 +17,19 @@ type pgxExecutor interface {
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
+
+type Summary struct {
+	SessionID string
+	Going     int
+	Maybe     int
+	Declined  int
+	Pending   int
+	Present   int
+	Late      int
+	Absent    int
+	Excused   int
+}
+
 type Repository struct{ db *pgxpool.Pool }
 
 func NewRepository(db *pgxpool.Pool) *Repository { return &Repository{db: db} }
@@ -80,6 +93,7 @@ func (r *Repository) GetBySessionUser(ctx context.Context, ex pgxExecutor, sessi
 	return &a, err
 }
 
+
 // SetRSVP: idempotent upsert that always updates responded_at.
 // The DB CHECK ensures responded_at is set whenever rsvp_status != 'pending'.
 func (r *Repository) SetRSVP(ctx context.Context, ex pgxExecutor, sessionID, userID, rsvp string) (*Attendance, error) {
@@ -122,7 +136,7 @@ func (r *Repository) CheckIn(ctx context.Context, ex pgxExecutor, sessionID, use
 		`INSERT INTO session_attendance
 		    (session_id, user_id, rsvp_status, attendance_status,
 		     checked_in_at)
-		 VALUES ($1::uuid, $2::uuid, 'going', $3, $4)
+		 VALUES ($1::uuid, $2::uuid, 'going', $3, $4, now())
 		 ON CONFLICT (session_id, user_id) DO UPDATE SET
 		    attendance_status = $3,
 		    checked_in_at     = $4,
@@ -199,6 +213,9 @@ func (r *Repository) MarkAttendance(ctx context.Context, ex pgxExecutor, session
 
 // ---------- roster ----------
 
+
+
+
 // ListRoster joins group_memberships (the source of truth for "who's in the
 // group") with session_attendance (may or may not exist). Every active group
 // member appears in the roster — even those who haven't RSVPed — because the
@@ -258,3 +275,82 @@ func normalizeLimit(n int) int {
 	}
 	return n
 }
+
+
+
+func (r *Repository) ClearRSVP(ctx context.Context, ex pgxExecutor, sessionID, userID string) (*Attendance, error) {
+	var a Attendance
+	err := ex.QueryRow(ctx,
+		`UPDATE session_attendance
+		    SET rsvp_status  = 'pending',
+		        responded_at = NULL
+		  WHERE session_id = $1::uuid AND user_id = $2::uuid
+		 RETURNING id::text, session_id::text, user_id::text,
+		           rsvp_status, attendance_status,
+		           responded_at, checked_in_at, checked_out_at,
+		           absence_reason, created_at, updated_at`,
+		sessionID, userID,
+	).Scan(&a.ID, &a.SessionID, &a.UserID, &a.RSVPStatus, &a.AttendanceStatus,
+		&a.RespondedAt, &a.CheckedInAt, &a.CheckedOutAt, &a.AbsenceReason,
+		&a.CreatedAt, &a.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	return &a, err
+}
+
+
+
+func (r *Repository) ListByUser(ctx context.Context, ex pgxExecutor, userID string, from, to *time.Time, limit, offset int) ([]Attendance, error) {
+	rows, err := ex.Query(ctx,
+		`SELECT id::text, session_id::text, user_id::text,
+		        rsvp_status, attendance_status,
+		        responded_at, checked_in_at, checked_out_at,
+		        absence_reason, created_at, updated_at
+		   FROM session_attendance
+		  WHERE user_id = $1::uuid
+		    AND ($2::timestamptz IS NULL OR created_at >= $2)
+		    AND ($3::timestamptz IS NULL OR created_at <  $3)
+		  ORDER BY created_at DESC
+		  LIMIT $4 OFFSET $5`,
+		userID, from, to, normalizeLimit(limit), offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []Attendance
+	for rows.Next() {
+		var a Attendance
+		if err := rows.Scan(&a.ID, &a.SessionID, &a.UserID, &a.RSVPStatus,
+			&a.AttendanceStatus, &a.RespondedAt, &a.CheckedInAt,
+			&a.CheckedOutAt, &a.AbsenceReason, &a.CreatedAt, &a.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+
+func (r *Repository) GetSummary(ctx context.Context, ex pgxExecutor, sessionID string) (*Summary, error) {
+	var s Summary
+	s.SessionID = sessionID
+	err := ex.QueryRow(ctx,
+		`SELECT
+		    COUNT(*) FILTER (WHERE rsvp_status = 'going')       AS going,
+		    COUNT(*) FILTER (WHERE rsvp_status = 'maybe')       AS maybe,
+		    COUNT(*) FILTER (WHERE rsvp_status = 'declined')    AS declined,
+		    COUNT(*) FILTER (WHERE rsvp_status = 'pending')     AS pending,
+		    COUNT(*) FILTER (WHERE attendance_status = 'present') AS present,
+		    COUNT(*) FILTER (WHERE attendance_status = 'late')    AS late,
+		    COUNT(*) FILTER (WHERE attendance_status = 'absent')  AS absent,
+		    COUNT(*) FILTER (WHERE attendance_status = 'excused') AS excused
+		   FROM session_attendance
+		  WHERE session_id = $1::uuid`,
+		sessionID,
+	).Scan(&s.Going, &s.Maybe, &s.Declined, &s.Pending,
+		&s.Present, &s.Late, &s.Absent, &s.Excused)
+	return &s, err
+}
+

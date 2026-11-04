@@ -107,3 +107,26 @@ func toRosterEntryResponse(e RosterEntry) RosterEntryResponse {
 		IsSelf:           e.IsSelf,
 	}
 }
+
+
+
+type SummaryResponse struct {
+	SessionID string `json:"sessionId"`
+	Going     int    `json:"going"`
+	Maybe     int    `json:"maybe"`
+	Declined  int    `json:"declined"`
+	Pending   int    `json:"pending"`
+	Present   int    `json:"present"`
+	Late      int    `json:"late"`
+	Absent    int    `json:"absent"`
+	Excused   int    `json:"excused"`
+}
+
+
+func toSummaryResponse(s *Summary) SummaryResponse {
+	return SummaryResponse{
+		SessionID: s.SessionID,
+		Going: s.Going, Maybe: s.Maybe, Declined: s.Declined, Pending: s.Pending,
+		Present: s.Present, Late: s.Late, Absent: s.Absent, Excused: s.Excused,
+	}
+}

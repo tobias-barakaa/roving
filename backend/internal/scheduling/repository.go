@@ -321,3 +321,4 @@ func (r *Repository) SetSeriesStatusIfCurrent(
 	}
 	return tag.RowsAffected() == 1, nil
 }
+
