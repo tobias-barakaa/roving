@@ -3,6 +3,7 @@ module roving/backend
 go 1.26.5
 
 require (
+	github.com/corentings/chess/v2 v2.6.1
 	github.com/gin-gonic/gin v1.12.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/jackc/pgx/v5 v5.11.0

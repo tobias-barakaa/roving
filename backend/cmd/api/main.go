@@ -16,6 +16,7 @@ import (
 	"roving/backend/internal/attendance"
 	"roving/backend/internal/auth"
 	"roving/backend/internal/chat"
+	"roving/backend/internal/chess"
 	"roving/backend/internal/config"
 	"roving/backend/internal/database"
 	"roving/backend/internal/focus"
@@ -111,6 +112,14 @@ func main() {
 	chatSvc.SetPublisher(hub)
 	realtimeHandler := realtime.NewHandler(hub, db, requireAuth, cfg.FrontendOrigin)
 
+	// Chess: a separate, game-scoped WebSocket hub plus the REST service.
+	chessRepo := chess.NewRepository(db)
+	chessEngine := chess.NewEngine()
+	chessHub := chess.NewHub()
+	chessSvc := chess.NewService(chessRepo, db, chessEngine)
+	chessSvc.SetPublisher(chessHub)
+	chessHandler := chess.NewHandler(chessSvc, chessHub, requireAuth, cfg.FrontendOrigin)
+
 	// Background workers.
 	go schedulingSvc.RunGenerator(ctx, time.Hour)
 	go notificationsSvc.RunWorker(ctx, time.Minute)
@@ -147,6 +156,7 @@ func main() {
 	notesHandler.Routes(api)
 	chatHandler.Routes(api)
 	realtimeHandler.Routes(api)
+	chessHandler.Routes(api)
 
 	addr := os.Getenv("API_ADDR")
 	if addr == "" {
@@ -164,6 +174,7 @@ func main() {
 	go func() {
 		<-ctx.Done()
 		hub.Shutdown() // Server.Shutdown does not close hijacked connections
+		chessHub.Shutdown()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		_ = server.Shutdown(shutdownCtx)
@@ -532,8 +543,6 @@ func main() {
 //     "roving/backend/internal/attendance"
 //     "roving/backend/internal/focus"
 
-
-
 // )
 
 // func main() {
@@ -580,42 +589,25 @@ func main() {
 // 	groupsService := groups.NewService(groupsRepo, nil)
 // 	groupsHandler := groups.NewHandler(groupsService, authHandler.RequireAuth())
 
-
-
-
-
 // 	schedulingRepo := scheduling.NewRepository(db)
 // 	schedulingSvc := scheduling.NewService(schedulingRepo, db)
 // 	schedulingHandler := scheduling.NewHandler(schedulingSvc, authHandler.RequireAuth())
-	
-
-
-
-
 
 // 	// After scheduling wiring (order doesn't matter here):
 // 	roomsRepo := rooms.NewRepository(db)
 // 	roomsSvc := rooms.NewService(roomsRepo, db)
 // 	roomsHandler := rooms.NewHandler(roomsSvc, authHandler.RequireAuth())
 
-
-
-
 // 	attendanceRepo := attendance.NewRepository(db)
 // 	attendanceSvc := attendance.NewService(attendanceRepo, db)
 // 	attendanceHandler := attendance.NewHandler(attendanceSvc, authHandler.RequireAuth())
-
 
 // 	focusRepo := focus.NewRepository(db)
 // 	focusSvc := focus.NewService(focusRepo, db)
 // 	focusHandler := focus.NewHandler(focusSvc, authHandler.RequireAuth())
 
-
-
 // 	// 3. START the rolling generator (runs in background)
 // 	go schedulingSvc.RunGenerator(ctx, time.Hour)
-	
-
 
 // 	go sessionStore.RunCleanup(ctx, time.Hour)
 
@@ -644,9 +636,6 @@ func main() {
 // 	roomsHandler.Routes(api)
 // 	attendanceHandler.Routes(api)
 // 	focusHandler.Routes(api)
-
-	
-	
 
 // 	addr := os.Getenv("API_ADDR")
 // 	if addr == "" {
