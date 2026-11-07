@@ -1,0 +1,25 @@
+---
+const main=[['Explore','/explore'],['Study Groups','/groups'],['Reading','/reading'],['Study Sessions','/sessions'],['Activities','/activities'],['Community','/community']];
+const path=Astro.url.pathname;
+---
+<a class="skip" href="#main">Skip to content</a>
+<header>
+  <div class="util"><div class="wrap">
+    <a href="/" class="logo" aria-label="Rovingr home">Rovingr</a>
+    <nav aria-label="Account"><a href="/help">Help</a><a href="/signin">Sign In</a><a class="create" href="/signup">Create an Account</a></nav>
+  </div></div>
+  <nav class="main" aria-label="Primary"><div class="wrap"><ul>
+    {main.map(([l,h])=><li><a href={h} aria-current={path.startsWith(h)?'page':undefined}>{l}</a></li>)}
+  </ul></div></nav>
+</header>
+<style>
+header{background:var(--surface);border-bottom:1px solid var(--border)}
+.util .wrap{display:flex;justify-content:space-between;align-items:center;padding-top:.6rem;padding-bottom:.6rem;gap:1rem;flex-wrap:wrap}
+.logo{font:700 1.5rem var(--serif);color:var(--accent)}
+.util nav{display:flex;gap:1.1rem;font-size:.85rem;align-items:center}
+.create{border:1px solid var(--accent);color:var(--accent);padding:.25rem .7rem}
+.main{background:var(--surface-2);border-top:1px solid var(--border)}
+.main ul{display:flex;overflow-x:auto}
+.main a{display:block;padding:.6rem 1rem;font-size:.88rem;white-space:nowrap;border-bottom:2px solid transparent}
+.main a:hover,.main a[aria-current]{border-bottom-color:var(--accent)}
+</style>

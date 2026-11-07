@@ -1,0 +1,137 @@
+---
+// src/components/navigation/MainNav.astro
+const primary = [
+  { href: "/explore", label: "Explore" },
+  { href: "/groups", label: "Study Groups" },
+  { href: "/reading", label: "Reading" },
+  { href: "/sessions", label: "Study Sessions" },
+  { href: "/activities", label: "Activities" },
+  { href: "/community", label: "Community" },
+];
+const secondary = [
+  { href: "/explore/technology", label: "Technology" },
+  { href: "/explore/science", label: "Science" },
+  { href: "/explore/mathematics", label: "Mathematics" },
+  { href: "/explore/literature", label: "Literature" },
+  { href: "/explore/business", label: "Business" },
+  { href: "/explore/philosophy", label: "Philosophy" },
+  { href: "/explore/psychology", label: "Psychology" },
+  { href: "/explore/history", label: "History" },
+  { href: "/explore/languages", label: "Languages" },
+  { href: "/explore/arts", label: "Arts" },
+  { href: "/explore/education", label: "Education" },
+  { href: "/explore/health", label: "Health" },
+];
+---
+<div class="mainnav">
+  <div class="container mainnav__inner">
+    <a href="/" class="brand" aria-label="Rovingr home">
+      <span class="brand__mark" aria-hidden="true">R</span>
+      <span class="brand__word">Rovingr</span>
+    </a>
+    <nav class="primary" aria-label="Primary">
+      {primary.map((l) => (
+        <a href={l.href}>{l.label}</a>
+      ))}
+    </nav>
+    <a class="mainnav__cta" href="/register">Join Rovingr</a>
+  </div>
+  <nav class="secondary" aria-label="Browse subjects">
+    <div class="container secondary__inner">
+      {secondary.map((l) => (
+        <a href={l.href}>{l.label}</a>
+      ))}
+    </div>
+  </nav>
+</div>
+
+<style>
+  .mainnav {
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+  .mainnav__inner {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-6);
+    min-height: 56px;
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    color: var(--text);
+    font-weight: 700;
+    font-size: var(--fs-lg);
+    letter-spacing: -0.02em;
+  }
+  .brand:hover { text-decoration: none; color: var(--text); }
+  .brand__mark {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    background: var(--accent);
+    color: #0b0d10;
+    font-weight: 800;
+    font-size: var(--fs-sm);
+    border-radius: var(--radius-sm);
+  }
+  .primary {
+    display: flex;
+    gap: var(--sp-5);
+    margin-left: var(--sp-4);
+    flex: 1;
+  }
+  .primary a {
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+    font-weight: 500;
+    padding: var(--sp-2) 0;
+    border-bottom: 2px solid transparent;
+  }
+  .primary a:hover {
+    color: var(--text);
+    text-decoration: none;
+    border-bottom-color: var(--accent);
+  }
+  .mainnav__cta {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    padding: var(--sp-2) var(--sp-4);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+  }
+  .mainnav__cta:hover {
+    background: var(--accent-soft);
+    text-decoration: none;
+    color: var(--text);
+  }
+  .secondary {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+  .secondary__inner {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-4);
+    padding-top: var(--sp-2);
+    padding-bottom: var(--sp-2);
+    font-size: var(--fs-xs);
+  }
+  .secondary a { color: var(--text-muted); }
+  .secondary a:hover { color: var(--accent); text-decoration: none; }
+
+  /* Responsive: collapse primary labels into wrap on tablet, hide strip on mobile */
+  @media (max-width: 960px) {
+    .mainnav__inner { flex-wrap: wrap; padding-top: var(--sp-2); padding-bottom: var(--sp-2); }
+    .primary { order: 3; width: 100%; margin-left: 0; flex-wrap: wrap; gap: var(--sp-4); }
+    .mainnav__cta { margin-left: auto; }
+  }
+  @media (max-width: 640px) {
+    .secondary { display: none; }
+    .primary a { font-size: var(--fs-xs); }
+  }
+</style>

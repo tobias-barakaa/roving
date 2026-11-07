@@ -1,0 +1,61 @@
+---
+// src/components/home/CommunityCTA.astro
+---
+<section class="cta section--flush" aria-labelledby="cta-title">
+  <div class="container cta__inner">
+    <div>
+      <h2 class="cta__title" id="cta-title">Join a community that learns together.</h2>
+      <p class="cta__desc">
+        Create a free account to join study groups, schedule focus sessions,
+        track your reading and meet people who share your curiosity.
+      </p>
+    </div>
+    <div class="cta__actions">
+      <a href="/register" class="cta__primary">Create an account</a>
+      <a href="/signin" class="cta__secondary">Sign in</a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .cta {
+    padding: var(--sp-12) 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .cta__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-8);
+  }
+  .cta__title {
+    font-family: var(--font-serif);
+    font-size: var(--fs-2xl);
+    font-weight: 600;
+    max-width: 24ch;
+    margin-bottom: var(--sp-2);
+  }
+  .cta__desc {
+    font-size: var(--fs-base);
+    color: var(--text-muted);
+    max-width: 56ch;
+    margin: 0;
+  }
+  .cta__actions { display: flex; gap: var(--sp-3); flex-shrink: 0; }
+  .cta__primary, .cta__secondary {
+    padding: var(--sp-3) var(--sp-5);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    border-radius: var(--radius);
+    white-space: nowrap;
+  }
+  .cta__primary { background: var(--accent); color: #0b0d10; }
+  .cta__primary:hover { background: var(--text); text-decoration: none; color: #0b0d10; }
+  .cta__secondary { border: 1px solid var(--border-strong); color: var(--text); }
+  .cta__secondary:hover { border-color: var(--accent); text-decoration: none; }
+  @media (max-width: 760px) {
+    .cta__inner { flex-direction: column; align-items: flex-start; }
+  }
+</style>

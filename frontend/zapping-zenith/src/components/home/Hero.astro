@@ -1,0 +1,19 @@
+<section class="hero"><div class="wrap">
+  <h1>Learning is better when we do it together.</h1>
+  <p class="muted">Discover study communities, explore reading materials, organize your time and connect with people who share your curiosity.</p>
+  <form action="/search" method="get" role="search">
+    <label class="sr-only" for="q">Search Rovingr</label>
+    <select name="type" aria-label="Search in"><option value="">All</option><option value="groups">Groups</option><option value="reading">Reading materials</option><option value="subjects">Subjects</option><option value="topics">Topics</option><option value="people">People</option></select>
+    <input id="q" name="q" type="search" placeholder="Search groups, reading, subjects, topics or people" />
+    <button class="btn" type="submit">Search</button>
+  </form>
+</div></section>
+<style>
+.hero{padding:2.5rem 0 2rem;background:var(--surface-2)}
+h1{font-size:clamp(1.75rem,4vw,2.5rem);max-width:22ch}
+.hero p{max-width:60ch;margin:.75rem 0 1.25rem}
+form{display:flex;max-width:720px}
+input,select{background:var(--bg);color:var(--text);border:1px solid var(--border);padding:.6rem .75rem;font:inherit}
+input{flex:1;min-width:0}select{border-right:0}
+@media(max-width:560px){form{flex-wrap:wrap}select{width:100%;border-right:1px solid var(--border)}}
+</style>

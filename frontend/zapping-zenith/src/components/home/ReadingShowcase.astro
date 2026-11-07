@@ -1,0 +1,56 @@
+---
+import SectionHeading from "../common/SectionHeading.astro";
+import BookCard from "../common/BookCard.astro";
+
+// Placeholder shelf (public-domain titles). Replace with API data later.
+const books = [
+  { title: "Notes on the Analytical Engine", author: "Ada Lovelace", subject: "Technology", tone: "blue" },
+  { title: "Pride and Prejudice", author: "Jane Austen", subject: "Literature", tone: "crimson" },
+  { title: "On the Origin of Species", author: "Charles Darwin", subject: "Science", tone: "green" },
+  { title: "Meditations", author: "Marcus Aurelius", subject: "Philosophy", tone: "purple" },
+  { title: "Elements", author: "Euclid", subject: "Mathematics", tone: "teal" },
+] as const;
+---
+
+<section class="section reading" aria-labelledby="reading-title">
+  <div class="wrap">
+    <SectionHeading
+      eyebrow="The library"
+      title="Reading showcase"
+      linkText="Browse library →"
+      href="/reading"
+      id="reading-title"
+    />
+
+    <div class="shelf">
+      <ul class="shelf__books">
+        {
+          books.map((b) => (
+            <li>
+              <BookCard {...b} href={`/reading?subject=${encodeURIComponent(b.subject.toLowerCase())}`} />
+            </li>
+          ))
+        }
+      </ul>
+      <div class="shelf__board" aria-hidden="true"></div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .shelf__books {
+    display: grid;
+    gap: clamp(1.25rem, 2.5vw, 2rem);
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    padding-inline: 0.5rem;
+  }
+
+  /* a solid board under the books */
+  .shelf__board {
+    height: 1rem;
+    margin-top: 1.5rem;
+    background: var(--desk);
+    border: 2px solid #000;
+    box-shadow: 0 6px 0 var(--desk-2);
+  }
+</style>

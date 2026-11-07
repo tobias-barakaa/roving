@@ -1,0 +1,19 @@
+---
+// src/components/common/SectionHeader.astro
+interface Props {
+  title: string;
+  subtitle?: string;
+  linkHref?: string;
+  linkLabel?: string;
+}
+const { title, subtitle, linkHref, linkLabel } = Astro.props;
+---
+<div class="section__head">
+  <div>
+    <h2 class="section__title">{title}</h2>
+    {subtitle && <span class="section__subtitle"> — {subtitle}</span>}
+  </div>
+  {linkHref && (
+    <a class="section__link" href={linkHref}>{linkLabel ?? "Browse all"} →</a>
+  )}
+</div>

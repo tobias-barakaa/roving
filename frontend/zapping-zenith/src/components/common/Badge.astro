@@ -1,0 +1,29 @@
+---
+// src/components/common/Badge.astro
+interface Props {
+  label: string;
+  tone?: "default" | "accent";
+}
+const { label, tone = "default" } = Astro.props;
+---
+<span class:list={["badge", `badge--${tone}`]}>{label}</span>
+
+<style>
+  .badge {
+    display: inline-block;
+    font-size: var(--fs-xxs);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-strong);
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .badge--accent {
+    border-color: var(--accent-dim);
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+</style>

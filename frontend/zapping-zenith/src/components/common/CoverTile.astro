@@ -1,0 +1,75 @@
+---
+// src/components/common/CoverTile.astro
+interface Props {
+  title: string;
+  initials: string;
+  color: string;
+  subtitle?: string;
+  aspect?: "book" | "square";
+}
+const { title, initials, color, subtitle, aspect = "book" } = Astro.props;
+---
+<div class:list={["cover", `cover--${aspect}`]} style={`--cover-color:${color}`}>
+  <div class="cover__spine" aria-hidden="true"></div>
+  <div class="cover__body">
+    <span class="cover__initials" aria-hidden="true">{initials}</span>
+    <span class="cover__title">{title}</span>
+    {subtitle && <span class="cover__subtitle">{subtitle}</span>}
+  </div>
+</div>
+
+<style>
+  .cover {
+    position: relative;
+    display: flex;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: color-mix(in srgb, var(--cover-color) 85%, black);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+      0 2px 6px rgba(0, 0, 0, 0.4);
+    transition: transform var(--transition), box-shadow var(--transition);
+    color: #f4f6fa;
+  }
+  .cover--book { aspect-ratio: 2 / 3; }
+  .cover--square { aspect-ratio: 1 / 1; }
+  .cover:hover {
+    transform: translateY(-2px);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+      0 6px 16px rgba(0, 0, 0, 0.55);
+  }
+  .cover__spine {
+    width: 6px;
+    background: rgba(0, 0, 0, 0.35);
+    flex-shrink: 0;
+  }
+  .cover__body {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: var(--sp-3);
+    flex: 1;
+    min-width: 0;
+  }
+  .cover__initials {
+    font-family: var(--font-serif);
+    font-size: var(--fs-2xl);
+    font-weight: 700;
+    line-height: 1;
+    opacity: 0.85;
+  }
+  .cover__title {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    line-height: var(--lh-tight);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .cover__subtitle {
+    font-size: var(--fs-xxs);
+    opacity: 0.75;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+</style>

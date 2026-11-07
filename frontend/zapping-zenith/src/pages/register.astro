@@ -1,0 +1,111 @@
+---
+import PublicLayout from "../layouts/PublicLayout.astro";
+---
+
+<PublicLayout title="Join Rovingr">
+  <section class="auth">
+    <div class="wrap">
+      <div class="leaf">
+        <span class="eyebrow">Become part of Rovingr</span>
+        <h1>Join Rovingr</h1>
+        <div class="ornament" aria-hidden="true"><span>❦</span></div>
+
+        <form id="register-form" novalidate>
+          <div class="field">
+            <label for="displayName">Display name</label>
+            <input class="input" id="displayName" name="displayName" type="text" autocomplete="nickname" required placeholder="How others will see you" />
+          </div>
+          <div class="field">
+            <label for="email">Email</label>
+            <input class="input" id="email" name="email" type="email" autocomplete="email" required placeholder="you@example.com" />
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <input class="input" id="password" name="password" type="password" autocomplete="new-password" minlength="8" required />
+          </div>
+
+          <p class="error" id="form-error" role="alert" hidden></p>
+
+          <button class="btn btn--primary" type="submit">Create account</button>
+        </form>
+
+        <p class="alt">Already a member? <a href="/login">Sign in</a></p>
+      </div>
+    </div>
+  </section>
+</PublicLayout>
+
+<script>
+  import { api, ApiError } from "../lib/api/client";
+
+  // ASSUMPTION: adjust to your Gin auth route and request fields.
+  const REGISTER_PATH = "/auth/register";
+
+  const form = document.getElementById("register-form") as HTMLFormElement;
+  const errorEl = document.getElementById("form-error") as HTMLElement;
+  const submit = form.querySelector("button[type=submit]") as HTMLButtonElement;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    errorEl.hidden = true;
+
+    const data = new FormData(form);
+    submit.disabled = true;
+
+    try {
+      await api.post(REGISTER_PATH, {
+        displayName: String(data.get("displayName") ?? "").trim(),
+        email: String(data.get("email") ?? "").trim(),
+        password: String(data.get("password") ?? ""),
+      });
+      window.location.href = "/";
+    } catch (err) {
+      errorEl.textContent =
+        err instanceof ApiError ? err.message : "Could not reach Rovingr. Please try again.";
+      errorEl.hidden = false;
+    } finally {
+      submit.disabled = false;
+    }
+  });
+</script>
+
+<style>
+  .auth {
+    padding-block: clamp(2.5rem, 7vw, 5rem);
+  }
+
+  .leaf {
+    display: grid;
+    gap: 1.25rem;
+    max-width: 28rem;
+    margin-inline: auto;
+    padding: clamp(1.75rem, 5vw, 2.75rem);
+    text-align: center;
+    background: #fff;
+    border: 2px solid #000;
+    box-shadow: 6px 6px 0 #000;
+  }
+
+  h1 {
+    font-size: 2.6rem;
+  }
+
+  form {
+    display: grid;
+    gap: 1.4rem;
+    text-align: left;
+  }
+
+  .error {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.98rem;
+    color: var(--accent-d);
+    background: rgba(31, 58, 95, 0.08);
+    border-left: 3px solid var(--accent);
+  }
+
+  .alt {
+    font-size: 1rem;
+    color: var(--ink-2);
+  }
+</style>

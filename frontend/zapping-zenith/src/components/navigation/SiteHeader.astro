@@ -1,0 +1,188 @@
+
+<header class="site-header">
+  <div class="top-strip">
+    <div class="container top-strip-inner">
+      <span>Explore a better way to learn together.</span>
+
+      <div class="top-links">
+        <a href="#about">About Rovingr</a>
+        <a href="#community">Community</a>
+        <a href="#help">Help</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="container brand-row">
+    <a class="brand" href="/" aria-label="Rovingr homepage">
+      rovingr<span>.</span>
+    </a>
+
+    <div class="brand-description">
+      A space for curious minds.
+    </div>
+
+    <div class="account-links">
+      <a href="/login" class="sign-in">Sign In</a>
+      <a href="/register" class="join-button">Create an Account</a>
+    </div>
+  </div>
+
+  <nav class="main-navigation" aria-label="Main navigation">
+    <div class="container nav-inner">
+      <div class="nav-links">
+        <a href="#explore">Explore</a>
+        <a href="#groups">Study Groups</a>
+        <a href="#reading">Reading</a>
+        <a href="#sessions">Study Sessions</a>
+        <a href="#activities">Activities</a>
+        <a href="#community">Community</a>
+      </div>
+
+      <a href="#explore" class="browse-link">Browse all ↓</a>
+    </div>
+  </nav>
+</header>
+
+<style>
+  .site-header {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .top-strip {
+    border-bottom: 1px solid var(--border);
+    background: #141820;
+  }
+
+  .top-strip-inner {
+    min-height: 34px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .top-links {
+    display: flex;
+    gap: 22px;
+  }
+
+  .brand-row {
+    min-height: 82px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .brand {
+    font-size: 33px;
+    font-weight: 800;
+    letter-spacing: -2px;
+    color: var(--text);
+  }
+
+  .brand span {
+    color: var(--accent);
+  }
+
+  .brand-description {
+    font-size: 12px;
+    color: var(--muted);
+    border-left: 1px solid var(--border);
+    padding-left: 20px;
+  }
+
+  .account-links {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .join-button {
+    padding: 9px 15px;
+    border-radius: 5px;
+    background: var(--accent);
+    color: #101827;
+  }
+
+  .join-button:hover {
+    color: #101827;
+    background: var(--accent-hover);
+  }
+
+  .main-navigation {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+
+  .nav-inner {
+    min-height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+  }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 27px;
+  }
+
+  .nav-links a,
+  .browse-link {
+    font-size: 12px;
+    font-weight: 550;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .nav-links a:hover,
+  .browse-link:hover {
+    color: var(--accent);
+  }
+
+  @media (max-width: 800px) {
+    .top-links,
+    .brand-description,
+    .browse-link {
+      display: none;
+    }
+
+    .nav-inner {
+      overflow-x: auto;
+    }
+
+    .nav-links {
+      gap: 23px;
+      min-height: 44px;
+    }
+
+    .nav-links a {
+      flex-shrink: 0;
+    }
+
+    .brand-row {
+      min-height: 70px;
+    }
+  }
+
+  @media (max-width: 420px) {
+    .brand {
+      font-size: 27px;
+    }
+
+    .account-links {
+      gap: 11px;
+      font-size: 11px;
+    }
+
+    .join-button {
+      padding: 8px 10px;
+    }
+  }
+</style>

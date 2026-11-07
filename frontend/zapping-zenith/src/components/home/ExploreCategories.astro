@@ -1,0 +1,143 @@
+---
+import SectionHeading from "../common/SectionHeading.astro";
+
+// Laid out like a table of contents: numeral, title, dotted leader, blurb.
+const contents = [
+  { n: "I", title: "Groups", blurb: "Find your community", href: "/groups", tone: "crimson" },
+  { n: "II", title: "Reading", blurb: "Explore materials", href: "/reading", tone: "green" },
+  { n: "III", title: "Focus", blurb: "Study with purpose", href: "/sessions", tone: "blue" },
+  { n: "IV", title: "Sessions", blurb: "Plan your time", href: "/sessions", tone: "navy" },
+  { n: "V", title: "Community", blurb: "Discuss and connect", href: "/community", tone: "teal" },
+  { n: "VI", title: "Chess", blurb: "Take a break", href: "/chess", tone: "purple" },
+];
+
+const subjects = [
+  "Technology", "Computer Science", "Mathematics", "Literature", "Business",
+  "Philosophy", "Science", "History", "Psychology", "Languages",
+];
+---
+
+<section class="section explore" aria-labelledby="explore-title">
+  <div class="wrap">
+    <SectionHeading eyebrow="Contents" title="Explore Rovingr" id="explore-title" />
+
+    <div class="explore__grid">
+      <ol class="toc">
+        {
+          contents.map((c) => (
+            <li>
+              <a class={`toc__row toc__row--${c.tone}`} href={c.href}>
+                <span class="toc__num">{c.n}</span>
+                <span class="toc__title">{c.title}</span>
+                <span class="toc__leader" aria-hidden="true" />
+                <span class="toc__blurb">{c.blurb}</span>
+              </a>
+            </li>
+          ))
+        }
+      </ol>
+
+      <aside class="index" aria-labelledby="subjects-title">
+        <h3 id="subjects-title" class="index__title">Popular subjects</h3>
+        <ul class="index__list">
+          {
+            subjects.map((s) => (
+              <li>
+                <a class="tag" href={`/groups?subject=${encodeURIComponent(s.toLowerCase())}`}>{s}</a>
+              </li>
+            ))
+          }
+        </ul>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<style>
+  .explore__grid {
+    display: grid;
+    gap: clamp(2rem, 5vw, 3.5rem);
+  }
+  @media (min-width: 60rem) {
+    .explore__grid { grid-template-columns: 1.4fr 1fr; align-items: start; }
+  }
+
+  .toc { border-top: 3px double var(--ink); }
+
+  .toc__row {
+    --tc: var(--c-crimson);
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 0.8rem 0.5rem;
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px solid var(--rule);
+  }
+  .toc__row--crimson { --tc: var(--c-crimson); }
+  .toc__row--green { --tc: var(--c-green); }
+  .toc__row--blue { --tc: var(--c-blue); }
+  .toc__row--navy { --tc: var(--c-navy); }
+  .toc__row--teal { --tc: var(--c-teal); }
+  .toc__row--purple { --tc: var(--c-purple); }
+
+  .toc__num {
+    flex: 0 0 2.6rem;
+    display: grid;
+    place-items: center;
+    height: 2rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: #fff;
+    background: var(--tc);
+    border: 2px solid #000;
+  }
+
+  .toc__title { font-size: 1.5rem; line-height: 1.1; }
+
+  .toc__leader {
+    flex: 1;
+    min-width: 1rem;
+    align-self: flex-end;
+    margin-bottom: 0.4rem;
+    border-bottom: 2px dotted var(--ink-3);
+  }
+
+  .toc__blurb { font-size: 1rem; color: var(--ink-2); text-align: right; }
+
+  .toc__row:hover { background: var(--paper-2); }
+  .toc__row:hover .toc__title { color: var(--tc); }
+
+  @media (max-width: 32rem) {
+    .toc__leader { display: none; }
+    .toc__blurb { margin-left: auto; }
+  }
+
+  .index {
+    padding: 1.5rem;
+    background: var(--paper-2);
+    border: 2px solid #000;
+    box-shadow: 5px 5px 0 #000;
+  }
+  .index__title {
+    margin-bottom: 1rem;
+    padding-bottom: 0.7rem;
+    text-align: center;
+    font-size: 1.4rem;
+    border-bottom: 3px double var(--ink);
+  }
+  .index__list { display: flex; flex-wrap: wrap; gap: 0.55rem; }
+
+  .tag {
+    display: inline-block;
+    padding: 0.2rem 0.8rem;
+    font-size: 0.98rem;
+    color: var(--ink);
+    text-decoration: none;
+    background: #fff;
+    border: 2px solid #000;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+  .tag:hover { background: var(--c-navy); color: #fff; }
+</style>

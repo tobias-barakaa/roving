@@ -1,0 +1,46 @@
+---
+// src/components/navigation/UtilityBar.astro
+---
+<div class="utility">
+  <div class="container utility__inner">
+    <span class="utility__note">An online study & learning community</span>
+    <nav class="utility__links" aria-label="Account and help">
+      <a href="/signin">Sign In</a>
+      <a href="/register">Create an Account</a>
+      <a href="/help">Help</a>
+    </nav>
+  </div>
+</div>
+
+<style>
+  .utility {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    font-size: var(--fs-xs);
+  }
+  .utility__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    min-height: 34px;
+  }
+  .utility__note {
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+  }
+  .utility__links {
+    display: flex;
+    gap: var(--sp-4);
+  }
+  .utility__links a {
+    color: var(--text-muted);
+  }
+  .utility__links a:hover {
+    color: var(--text);
+    text-decoration: none;
+  }
+  @media (max-width: 640px) {
+    .utility__note { display: none; }
+  }
+</style>

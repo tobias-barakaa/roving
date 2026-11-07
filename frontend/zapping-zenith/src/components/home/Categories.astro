@@ -1,0 +1,13 @@
+---
+import SectionHead from '../common/SectionHead.astro';
+import {categories} from '../../lib/demo/homepage';
+---
+<section class="section"><div class="wrap">
+  <SectionHead title="Popular categories" href="/explore" linkText="All subjects"/>
+  <ul class="cats">{categories.map(c=><li><a href={`/explore/${c.slug}`}>{c.name}<span class="muted small">{c.count}</span></a></li>)}</ul>
+</div></section>
+<style>
+.cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));border-top:1px solid var(--border);border-left:1px solid var(--border)}
+li a{display:flex;justify-content:space-between;padding:.6rem .8rem;border-right:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface)}
+li a:hover{background:var(--surface-2)}
+</style>

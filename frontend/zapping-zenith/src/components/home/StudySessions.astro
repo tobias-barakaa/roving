@@ -1,0 +1,9 @@
+---
+import SectionHead from '../common/SectionHead.astro';
+import {sessions} from '../../lib/demo/homepage';
+---
+<section class="section"><div class="wrap">
+  <SectionHead title="Study sessions" href="/sessions" linkText="See the schedule"/>
+  <div class="grid cols">{sessions.map(s=><article class="panel"><p class="small muted">{s.kind} · {s.when}</p><h3>{s.title}</h3><p class="muted small">{s.detail}</p></article>)}</div>
+</div></section>
+<style>.cols{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}h3{font-size:1.05rem;margin:.25rem 0}</style>

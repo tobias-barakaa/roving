@@ -1,0 +1,110 @@
+
+<footer class="footer" id="about">
+  <div class="container footer-grid">
+    <div class="footer-brand">
+      <a href="/" class="brand">
+        rovingr<span>.</span>
+      </a>
+
+      <p>
+        A place to read, focus, connect and learn
+        alongside people who share your curiosity.
+      </p>
+    </div>
+
+    <div>
+      <h3>Explore</h3>
+      <a href="#groups">Study Groups</a>
+      <a href="#reading">Reading</a>
+      <a href="#sessions">Study Sessions</a>
+      <a href="#activities">Activities</a>
+    </div>
+
+    <div>
+      <h3>Community</h3>
+      <a href="#community">Discover</a>
+      <a href="/register">Join Rovingr</a>
+      <a href="#help">Help Centre</a>
+    </div>
+
+    <div id="help">
+      <h3>Information</h3>
+      <a href="#about">About Us</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#terms">Terms</a>
+    </div>
+  </div>
+
+  <div class="container footer-bottom">
+    <span>© {new Date().getFullYear()} Rovingr.</span>
+    <span>Built for curious minds.</span>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    margin-top: 50px;
+    background: #141820;
+    border-top: 1px solid var(--border);
+  }
+
+  .footer-grid {
+    padding-block: 45px;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 40px;
+  }
+
+  .brand {
+    font-size: 29px;
+    font-weight: 800;
+    letter-spacing: -2px;
+  }
+
+  .brand span {
+    color: var(--accent);
+  }
+
+  .footer-brand p {
+    max-width: 280px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .footer-grid h3 {
+    font-size: 12px;
+    margin: 5px 0 15px;
+  }
+
+  .footer-grid > div:not(:first-child) a {
+    display: block;
+    margin-bottom: 10px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .footer-grid a:hover {
+    color: var(--accent);
+  }
+
+  .footer-bottom {
+    min-height: 55px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid var(--border);
+    color: var(--subtle);
+    font-size: 11px;
+  }
+
+  @media (max-width: 700px) {
+    .footer-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 25px;
+    }
+
+    .footer-brand {
+      grid-column: 1 / -1;
+    }
+  }
+</style>

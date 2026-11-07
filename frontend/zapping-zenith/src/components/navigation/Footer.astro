@@ -1,0 +1,13 @@
+---
+const cols=[['About',['Our story','Careers','Contact']],['Explore',['Subjects','Reading materials','Study groups']],['Community',['Guidelines','Events','Chess room']],['Help',['Help centre','Accessibility','Report a problem']]];
+---
+<footer><div class="wrap">
+  <div class="cols">{cols.map(([t,l])=><nav aria-label={t as string}><h3>{t}</h3><ul>{(l as string[]).map(i=><li><a href="#">{i}</a></li>)}</ul></nav>)}</div>
+  <p class="small muted bar">© {new Date().getFullYear()} Rovingr. <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p>
+</div></footer>
+<style>
+footer{background:var(--surface);border-top:1px solid var(--border);margin-top:2rem;padding-top:1.5rem}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1.5rem}
+h3{font:600 .95rem var(--sans);margin-bottom:.5rem}li{padding:.15rem 0}li a{color:var(--muted);font-size:.85rem}
+.bar{border-top:1px solid var(--border);margin-top:1.5rem;padding:1rem 0}
+</style>

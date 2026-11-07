@@ -1,0 +1,55 @@
+---
+// Sits on the desk above the book: brand left, account actions right.
+---
+
+<div class="topbar">
+  <a class="brand" href="/" aria-label="Rovingr home">rovingr<span>.</span></a>
+
+  <nav class="actions" aria-label="Account">
+    <a class="actions__link" href="/explore">Explore</a>
+    <a class="actions__link" href="/login">Sign in</a>
+    <a class="btn btn--cream btn--sm" href="/register">Join Rovingr</a>
+  </nav>
+</div>
+
+<style>
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-block: 1.25rem 1.1rem;
+  }
+
+  .brand {
+    font-size: 2.2rem;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: #fff;
+    text-decoration: none;
+  }
+  .brand span { color: #ef6a78; }
+  .brand:hover { color: #fff; }
+
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: clamp(0.9rem, 3vw, 1.75rem);
+  }
+
+  .actions__link {
+    font-size: 0.82rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #c9d4ea;
+    text-decoration: none;
+  }
+  .actions__link:hover { color: #fff; text-decoration: underline; }
+
+  .topbar :global(.btn--cream) { box-shadow: 2px 2px 0 #000; }
+
+  @media (max-width: 32rem) {
+    .actions__link:first-child { display: none; }
+  }
+</style>

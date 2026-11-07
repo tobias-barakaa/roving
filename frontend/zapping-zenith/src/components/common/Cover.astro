@@ -1,0 +1,10 @@
+---
+const {title,hue,label}=Astro.props;
+---
+<div class="cover" style={`--h:${hue}`} role="img" aria-label={`Cover: ${title}`}>
+  <span>{title}</span><small>{label}</small>
+</div>
+<style>
+.cover{aspect-ratio:2/3;display:flex;flex-direction:column;justify-content:space-between;padding:.7rem;background:linear-gradient(90deg,hsl(var(--h) 30% 12%) 0 6px,hsl(var(--h) 28% 24%) 6px);border:1px solid var(--border);box-shadow:3px 3px 0 #0b0d10}
+span{font:600 1rem/1.2 var(--serif)}small{color:hsl(var(--h) 60% 80%);font-size:.7rem}
+</style>

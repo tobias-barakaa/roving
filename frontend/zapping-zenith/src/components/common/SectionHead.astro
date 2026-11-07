@@ -1,0 +1,4 @@
+---
+const {title,href,linkText}=Astro.props;
+---
+<div class="section-head"><h2>{title}</h2>{href&&<a href={href}>{linkText}</a>}</div>

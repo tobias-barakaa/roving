@@ -1,0 +1,247 @@
+/* ==========================================================================
+   Rovingr — global styles
+   Theme: a bound book on a desk. Index tabs, page edges, cloth covers.
+   Pure CSS, no framework. Change the palette in :root only.
+   ========================================================================== */
+
+:root {
+  /* the desk the book lies on */
+  --desk: #10223b;
+  --desk-2: #0a1729;
+
+  /* paper (cool, not yellow/brown) */
+  --paper: #fdfcf9;
+  --paper-2: #eef1f7;
+  --paper-3: #dce2ee;
+
+  /* ink */
+  --ink: #14181f;
+  --ink-2: #394152;
+  --ink-3: #667085;
+  --rule: #c3cad9;
+
+  /* cloth colours — used for tabs and covers */
+  --c-crimson: #9b1f30;
+  --c-green: #1f6f4a;
+  --c-blue: #2a56b0;
+  --c-purple: #66307f;
+  --c-teal: #0d7480;
+  --c-navy: #17356b;
+
+  /* main accent (buttons, links) */
+  --accent: #9b1f30;
+  --accent-d: #741523;
+  --accent-soft: #c9d4ea; /* pale line colour used on dark covers */
+
+  --font-serif: "EB Garamond", "Iowan Old Style", "Palatino Linotype", Palatino,
+    "Book Antiqua", Georgia, "Times New Roman", serif;
+
+  --sheet-w: 72rem;
+  --gutter: clamp(1.25rem, 4vw, 2.75rem);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  background: var(--desk-2);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  color: var(--ink);
+  background-color: var(--desk);
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.025) 0 1px,
+    transparent 1px 6px
+  );
+  font-family: var(--font-serif);
+  font-size: clamp(1.1rem, 1.02rem + 0.35vw, 1.25rem);
+  line-height: 1.65;
+  font-feature-settings: "kern", "liga", "onum";
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4 {
+  margin: 0;
+  font-weight: 500;
+  line-height: 1.15;
+}
+
+p { margin: 0; }
+
+a {
+  color: var(--accent);
+  text-underline-offset: 0.2em;
+}
+a:hover { color: var(--accent-d); }
+
+:focus-visible {
+  outline: 3px solid #f2c14e;
+  outline-offset: 2px;
+}
+
+::selection { background: var(--c-navy); color: #fff; }
+
+img, svg { max-width: 100%; display: block; }
+ul, ol { margin: 0; padding: 0; list-style: none; }
+em, i, cite { font-style: normal; }
+
+/* ---------- the book ---------- */
+
+.desk-pad {
+  width: 100%;
+  max-width: calc(var(--sheet-w) + 2rem);
+  margin-inline: auto;
+  padding-inline: 1rem;
+}
+
+.sheet {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  max-width: var(--sheet-w);
+  margin-inline: auto;
+  background: var(--paper);
+  border: 2px solid #000;
+  /* stacked page edges + soft shadow on the desk */
+  box-shadow:
+    0 0 0 3px var(--paper),
+    0 0 0 4px #9aa3b8,
+    0 0 0 7px var(--paper),
+    0 0 0 8px #9aa3b8,
+    0 0 0 11px var(--paper),
+    0 0 0 12px #9aa3b8,
+    0 30px 50px rgba(0, 0, 0, 0.55);
+}
+
+/* ribbon bookmark hanging from the top edge */
+.sheet::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  right: clamp(1.25rem, 6vw, 4rem);
+  z-index: 3;
+  width: 1.7rem;
+  height: 4.6rem;
+  background: var(--c-crimson);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%);
+  box-shadow: inset -4px 0 0 rgba(0, 0, 0, 0.18);
+}
+
+.wrap {
+  width: 100%;
+  max-width: 64rem;
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.section {
+  padding-block: clamp(3rem, 7vw, 5rem);
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- type helpers ---------- */
+
+.eyebrow {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.ornament {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: currentColor;
+  font-size: 1.1rem;
+}
+.ornament::before,
+.ornament::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.5;
+}
+
+/* ---------- buttons ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.6rem;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+  border: 2px solid #000;
+  border-radius: 0;
+  box-shadow: 3px 3px 0 #000;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.15s ease;
+}
+.btn:hover { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #000; }
+.btn:active { transform: translate(3px, 3px); box-shadow: 0 0 0 #000; }
+
+.btn--primary { background: var(--accent); color: #fff; }
+.btn--primary:hover { background: var(--accent-d); color: #fff; }
+
+.btn--ghost { background: var(--paper); color: var(--ink); }
+.btn--ghost:hover { background: var(--paper-3); color: var(--ink); }
+
+.btn--cream { background: #fdf6e3; color: var(--c-navy); }
+.btn--cream:hover { background: #fff; color: var(--c-navy); }
+
+.btn--sm { padding: 0.4rem 1rem; font-size: 0.92rem; box-shadow: 2px 2px 0 #000; }
+
+/* ---------- form fields ---------- */
+
+.field { display: grid; gap: 0.35rem; }
+.field label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.input {
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  font: inherit;
+  color: var(--ink);
+  background: #fff;
+  border: 2px solid var(--ink);
+  border-radius: 0;
+}
+.input::placeholder { color: var(--ink-3); }
+.input:focus { outline: none; border-color: var(--accent); box-shadow: 3px 3px 0 var(--accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .btn { transition: none; }
+}

@@ -1,0 +1,76 @@
+---
+import SectionHeading from "../common/SectionHeading.astro";
+
+const activities = [
+  { glyph: "❦", title: "Discussion", text: "Talk through chapters, problem sets and half-formed ideas with people who care about them.", href: "/community", cta: "Join the conversation →", tone: "crimson" },
+  { glyph: "♞", title: "Chess corner", text: "Step away from the page for a game. A short break keeps a long study session honest.", href: "/chess", cta: "Take a break →", tone: "purple" },
+  { glyph: "✦", title: "Quiet hours", text: "Shared, silent time in a room together. Cameras optional, company guaranteed.", href: "/sessions", cta: "Find a room →", tone: "teal" },
+];
+---
+
+<section class="section community" aria-labelledby="community-title">
+  <div class="wrap">
+    <SectionHeading eyebrow="Between chapters" title="In the community" id="community-title" />
+
+    <ul class="grid">
+      {
+        activities.map((a) => (
+          <li class={`item item--${a.tone}`}>
+            <span class="item__glyph" aria-hidden="true">{a.glyph}</span>
+            <h3>{a.title}</h3>
+            <p>{a.text}</p>
+            <a href={a.href}>{a.cta}</a>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>
+
+<style>
+  .grid {
+    display: grid;
+    gap: 1.75rem;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  }
+
+  .item {
+    --tc: var(--c-crimson);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1.4rem 1.4rem 1.5rem;
+    background: #fff;
+    border: 2px solid #000;
+    border-top: 10px solid var(--tc);
+    box-shadow: 4px 4px 0 #000;
+  }
+  .item--crimson { --tc: var(--c-crimson); }
+  .item--purple { --tc: var(--c-purple); }
+  .item--teal { --tc: var(--c-teal); }
+
+  .item__glyph {
+    display: grid;
+    place-items: center;
+    width: 2.8rem;
+    height: 2.8rem;
+    font-size: 1.5rem;
+    line-height: 1;
+    color: #fff;
+    background: var(--tc);
+    border: 2px solid #000;
+    border-radius: 50%;
+  }
+
+  h3 { margin-top: 0.4rem; font-size: 1.5rem; }
+  p { color: var(--ink-2); font-size: 1.02rem; }
+
+  a {
+    margin-top: auto;
+    padding-top: 0.6rem;
+    font-weight: 600;
+    color: var(--tc);
+    text-decoration: none;
+  }
+  a:hover { text-decoration: underline; }
+</style>

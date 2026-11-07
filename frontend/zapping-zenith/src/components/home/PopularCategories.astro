@@ -1,0 +1,58 @@
+---
+// src/components/home/PopularCategories.astro
+import SectionHeader from "../common/SectionHeader.astro";
+import { DEMO_CATEGORIES } from "../../lib/api/demo-data";
+---
+<section class="section" aria-labelledby="categories-title">
+  <div class="container">
+    <SectionHeader
+      title="Popular categories"
+      subtitle="Browse by subject"
+      linkHref="/explore"
+      linkLabel="All subjects"
+    />
+    <ul class="cat-grid">
+      {DEMO_CATEGORIES.map((c) => (
+        <li>
+          <a class="cat" href={`/explore/${c.id}`}>
+            <span class="cat__label">{c.label}</span>
+            <span class="cat__count">{c.count}</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </div>
+</section>
+
+<style>
+  .cat-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .cat-grid li { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .cat {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+    padding: var(--sp-3) var(--sp-4);
+    color: var(--text);
+    height: 100%;
+    transition: background var(--transition);
+  }
+  .cat:hover {
+    background: var(--surface);
+    text-decoration: none;
+  }
+  .cat__label { font-size: var(--fs-sm); font-weight: 500; }
+  .cat__count { font-size: var(--fs-xxs); color: var(--text-faint); }
+  @media (max-width: 960px) {
+    .cat-grid { grid-template-columns: repeat(4, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .cat-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>

@@ -1,0 +1,152 @@
+---
+// The front cover: solid cloth-blue board with a framed title page.
+---
+
+<section class="hero" aria-labelledby="hero-title">
+  <div class="cover">
+    <div class="frame">
+      <span class="kicker">Your space for learning</span>
+      <h1 id="hero-title">Make time for what matters.</h1>
+
+      <div class="ornament orn" aria-hidden="true"><span>❦</span></div>
+
+      <p class="lead">Read together. Study together. Grow together.</p>
+      <p class="sub">
+        Discover study communities, explore reading materials, and find people
+        who share your curiosity.
+      </p>
+
+      <form class="search" action="/explore" method="get" role="search">
+        <label class="visually-hidden" for="q">Search</label>
+        <input
+          id="q"
+          class="search__input"
+          type="search"
+          name="q"
+          placeholder="Search groups, books, subjects or topics…"
+          autocomplete="off"
+        />
+        <button class="btn btn--primary" type="submit">Search</button>
+      </form>
+
+      <div class="actions">
+        <a class="btn btn--cream" href="/groups">Explore groups</a>
+        <a class="btn btn--cream-outline" href="/reading">Browse reading</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    padding: clamp(0.9rem, 2.5vw, 1.5rem);
+  }
+
+  .cover {
+    padding: clamp(0.7rem, 2vw, 1.1rem);
+    background:
+      repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.035) 0 2px, transparent 2px 8px),
+      var(--c-navy);
+    border: 2px solid #000;
+    box-shadow: inset 0 0 0 3px var(--c-navy), inset 0 0 0 4px rgba(201, 212, 234, 0.55);
+  }
+
+  .frame {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: clamp(2.5rem, 7vw, 5rem) var(--gutter);
+    text-align: center;
+    color: #fdf6e3;
+    border: 2px solid rgba(201, 212, 234, 0.75);
+    outline: 1px solid rgba(201, 212, 234, 0.45);
+    outline-offset: 6px;
+  }
+
+  .kicker {
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: #f2c14e;
+  }
+
+  h1 {
+    max-width: 16ch;
+    margin-top: 1rem;
+    font-size: clamp(2.8rem, 1.8rem + 4.6vw, 5rem);
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    color: #fff;
+  }
+
+  .orn {
+    width: min(18rem, 70%);
+    margin-block: 1.6rem 1.3rem;
+    color: #f2c14e;
+  }
+
+  .lead {
+    font-size: 1.4rem;
+    letter-spacing: 0.04em;
+  }
+
+  .sub {
+    max-width: 36rem;
+    margin-top: 0.7rem;
+    color: #c9d4ea;
+  }
+
+  .search {
+    display: flex;
+    gap: 0.6rem;
+    width: 100%;
+    max-width: 40rem;
+    margin-top: 2.25rem;
+    padding: 0.5rem 0.5rem 0.5rem 1.1rem;
+    background: #fff;
+    border: 2px solid #000;
+    box-shadow: 4px 4px 0 #000;
+  }
+
+  .search__input {
+    flex: 1;
+    min-width: 0;
+    font: inherit;
+    font-size: 1.05rem;
+    color: var(--ink);
+    background: transparent;
+    border: 0;
+  }
+  .search__input::placeholder { color: var(--ink-3); }
+  .search__input:focus { outline: none; }
+  .search:focus-within { box-shadow: 4px 4px 0 #f2c14e; }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.9rem;
+    margin-top: 1.75rem;
+  }
+
+  .actions :global(.btn) { box-shadow: 3px 3px 0 #000; }
+
+  .btn--cream-outline {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.7rem 1.6rem;
+    font-size: 1rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    color: #fdf6e3;
+    text-decoration: none;
+    border: 2px solid #fdf6e3;
+    background: transparent;
+  }
+  .btn--cream-outline:hover { background: #fdf6e3; color: var(--c-navy); }
+
+  @media (max-width: 30rem) {
+    .search { flex-direction: column; padding: 0.75rem; }
+  }
+</style>

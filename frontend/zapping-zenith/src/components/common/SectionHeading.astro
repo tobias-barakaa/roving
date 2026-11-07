@@ -1,0 +1,56 @@
+---
+interface Props {
+  eyebrow?: string;
+  title: string;
+  linkText?: string;
+  href?: string;
+  id?: string;
+}
+
+const { eyebrow, title, linkText, href, id } = Astro.props;
+---
+
+<header class="heading">
+  {eyebrow && <span class="eyebrow">{eyebrow}</span>}
+  <h2 id={id}>{title}</h2>
+  <div class="ornament heading__orn" aria-hidden="true"><span>❖</span></div>
+  {
+    linkText && href && (
+      <a class="heading__link" href={href}>
+        {linkText}
+      </a>
+    )
+  }
+</header>
+
+<style>
+  .heading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 2.5rem;
+    text-align: center;
+  }
+
+  h2 {
+    font-size: clamp(1.9rem, 1.4rem + 1.8vw, 2.7rem);
+    letter-spacing: -0.005em;
+  }
+
+  .heading__orn {
+    width: min(16rem, 70%);
+    color: var(--c-navy);
+  }
+
+  .heading__link {
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--accent);
+    border-bottom: 2px solid currentColor;
+  }
+  .heading__link:hover { color: var(--accent-d); }
+</style>

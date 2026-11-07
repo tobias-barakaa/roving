@@ -1,0 +1,61 @@
+---
+import SectionHeading from "../common/SectionHeading.astro";
+import GroupCard from "../common/GroupCard.astro";
+
+// Placeholder data. Replace with:  const { items } = await api.get<Page<Group>>("/groups?limit=3")
+const groups = [
+  {
+    title: "The Reading Room",
+    kicker: "Reading · Discussion",
+    description: "A quiet corner for slow reading and thoughtful conversation.",
+    href: "/groups/the-reading-room",
+    tone: "crimson",
+  },
+  {
+    title: "Developers' Corner",
+    kicker: "Technology · Programming",
+    description: "Build, debug and learn alongside people who ship.",
+    href: "/groups/developers-corner",
+    tone: "green",
+  },
+  {
+    title: "Mathematics Revision",
+    kicker: "Mathematics · Group study",
+    description: "Work through problem sets together, one proof at a time.",
+    href: "/groups/mathematics-revision",
+    tone: "blue",
+  },
+] as const;
+---
+
+<section class="section groups" aria-labelledby="groups-title">
+  <div class="wrap">
+    <SectionHeading
+      eyebrow="From the shelves"
+      title="Featured study groups"
+      linkText="View all →"
+      href="/groups"
+      id="groups-title"
+    />
+
+    <ul class="groups__grid">
+      {
+        groups.map((g) => (
+          <li>
+            <GroupCard {...g} />
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>
+
+<style>
+  .groups { background: var(--paper-2); border-block: 2px solid #000; }
+
+  .groups__grid {
+    display: grid;
+    gap: 2rem;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  }
+</style>
