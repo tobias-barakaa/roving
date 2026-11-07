@@ -1,0 +1,117 @@
+---
+import "../styles/global.css";
+import TopBar from "../components/navigation/TopBar.astro";
+import MainNavigation from "../components/navigation/MainNavigation.astro";
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = "Rovingr — read together, study together",
+  description = "Rovingr is an online study-room platform. Discover study communities, explore reading materials and find people who share your curiosity.",
+} = Astro.props;
+
+const year = new Date().getFullYear();
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#10223b" />
+    <title>{title}</title>
+
+    <!-- EB Garamond. Remove these three lines to fall back to the system serif stack. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <a class="skip" href="#content">Skip to content</a>
+
+    <div class="desk-pad">
+      <header>
+        <TopBar />
+        <MainNavigation />
+      </header>
+    </div>
+
+    <div class="desk-pad book">
+      <main id="content" class="sheet">
+        <slot />
+      </main>
+    </div>
+
+    <footer class="desk-pad footer">
+      <a class="footer__brand" href="/">rovingr<span>.</span></a>
+      <nav aria-label="Footer">
+        <a href="/about">About</a>
+        <a href="/community">Community</a>
+        <a href="/help">Help</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+      </nav>
+      <p class="footer__note">© {year} Rovingr · Set in EB Garamond</p>
+    </footer>
+  </body>
+</html>
+
+<style>
+  .skip {
+    position: absolute;
+    left: 1rem;
+    top: -4rem;
+    z-index: 10;
+    padding: 0.5rem 1rem;
+    background: #fff;
+    color: #000;
+  }
+  .skip:focus { top: 1rem; }
+
+  .book {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .footer {
+    display: grid;
+    gap: 0.9rem;
+    justify-items: center;
+    padding-block: 3rem 2.5rem;
+    text-align: center;
+    color: #b9c6e0;
+  }
+
+  .footer__brand {
+    font-size: 1.7rem;
+    line-height: 1;
+    color: #fff;
+    text-decoration: none;
+  }
+  .footer__brand span { color: #ef6a78; }
+
+  .footer nav {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem 1.75rem;
+  }
+  .footer nav a {
+    font-size: 0.8rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #b9c6e0;
+    text-decoration: none;
+  }
+  .footer nav a:hover { color: #fff; text-decoration: underline; }
+
+  .footer__note { font-size: 0.9rem; opacity: 0.8; }
+</style>
