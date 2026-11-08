@@ -1,3 +1,4 @@
+
 ---
 import PublicLayout from "../layouts/PublicLayout.astro";
 ---
@@ -12,24 +13,48 @@ import PublicLayout from "../layouts/PublicLayout.astro";
 
         <form id="register-form" novalidate>
           <div class="field">
-            <label for="displayName">Display name</label>
-            <input class="input" id="displayName" name="displayName" type="text" autocomplete="nickname" required placeholder="How others will see you" />
-          </div>
-          <div class="field">
             <label for="email">Email</label>
-            <input class="input" id="email" name="email" type="email" autocomplete="email" required placeholder="you@example.com" />
+            <input
+              class="input"
+              id="email"
+              name="email"
+              type="email"
+              autocomplete="email"
+              required
+              placeholder="you@example.com"
+            />
           </div>
+
           <div class="field">
             <label for="password">Password</label>
-            <input class="input" id="password" name="password" type="password" autocomplete="new-password" minlength="8" required />
+            <input
+              class="input"
+              id="password"
+              name="password"
+              type="password"
+              autocomplete="new-password"
+              minlength="8"
+              required
+            />
           </div>
 
           <p class="error" id="form-error" role="alert" hidden></p>
 
-          <button class="btn btn--primary" type="submit">Create account</button>
+          <button class="btn btn--primary" type="submit">
+            Create account
+          </button>
         </form>
 
-        <p class="alt">Already a member? <a href="/login">Sign in</a></p>
+        <div id="success-message" hidden>
+          <p>
+            Your account has been created. Please check your email for a
+            verification link before signing in.
+          </p>
+        </div>
+
+        <p class="alt">
+          Already a member? <a href="/login">Sign in</a>
+        </p>
       </div>
     </div>
   </section>
@@ -38,30 +63,47 @@ import PublicLayout from "../layouts/PublicLayout.astro";
 <script>
   import { api, ApiError } from "../lib/api/client";
 
-  // ASSUMPTION: adjust to your Gin auth route and request fields.
   const REGISTER_PATH = "/auth/register";
 
   const form = document.getElementById("register-form") as HTMLFormElement;
   const errorEl = document.getElementById("form-error") as HTMLElement;
+  const successEl = document.getElementById("success-message") as HTMLElement;
   const submit = form.querySelector("button[type=submit]") as HTMLButtonElement;
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
+
     errorEl.hidden = true;
+    successEl.hidden = true;
+
+    if (!form.reportValidity()) return;
 
     const data = new FormData(form);
     submit.disabled = true;
 
     try {
-      await api.post(REGISTER_PATH, {
-        displayName: String(data.get("displayName") ?? "").trim(),
-        email: String(data.get("email") ?? "").trim(),
-        password: String(data.get("password") ?? ""),
-      });
+      const result = await api.post<{ message?: string }>(
+        REGISTER_PATH,
+        {
+          email: String(data.get("email") ?? "").trim(),
+          password: String(data.get("password") ?? ""),
+        },
+      );
+
+      if (result?.message) {
+        form.hidden = true;
+        successEl.hidden = false;
+        return;
+      }
+
+      // Registration created a session successfully.
       window.location.href = "/";
     } catch (err) {
       errorEl.textContent =
-        err instanceof ApiError ? err.message : "Could not reach Rovingr. Please try again.";
+        err instanceof ApiError
+          ? err.message
+          : "Could not reach Rovingr. Please try again.";
+
       errorEl.hidden = false;
     } finally {
       submit.disabled = false;
@@ -102,6 +144,11 @@ import PublicLayout from "../layouts/PublicLayout.astro";
     color: var(--accent-d);
     background: rgba(31, 58, 95, 0.08);
     border-left: 3px solid var(--accent);
+  }
+
+  #success-message {
+    padding: 1rem;
+    line-height: 1.6;
   }
 
   .alt {

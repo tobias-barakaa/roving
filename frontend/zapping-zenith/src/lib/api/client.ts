@@ -10,10 +10,16 @@
  * Access-Control-Allow-Credentials: true and an explicit allowed origin.
  */
 
-const BASE_URL = (import.meta.env.PUBLIC_API_URL ?? "http://localhost:8080").replace(
-  /\/+$/,
-  "",
-);
+// const REGISTER_PATH = "/auth/register";
+// const LOGIN_PATH = "/auth/login";
+// const BASE_URL = (import.meta.env.PUBLIC_API_URL ?? "http://localhost:8080").replace(
+//   /\/+$/,
+//   "",
+// );
+const BASE_URL = (
+  import.meta.env.PUBLIC_API_URL ??
+  "http://localhost:8080/api/v1"
+).replace(/\/+$/, "");
 
 export class ApiError extends Error {
   readonly status: number;
