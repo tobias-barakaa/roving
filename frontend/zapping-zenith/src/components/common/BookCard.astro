@@ -34,14 +34,14 @@ const { title, author, subject, href = "/reading", tone = "crimson" } = Astro.pr
     background:
       repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 8px),
       var(--c);
-    border: 2px solid #000;
+    border: 1px solid var(--line-strong);
     /* page block visible on the right-hand edge */
     box-shadow:
-      3px 0 0 -1px #fff, 4px 0 0 -1px #8c95aa,
-      6px 0 0 -2px #fff, 7px 0 0 -2px #8c95aa,
+      3px 0 0 -1px var(--surface), 4px 0 0 -1px var(--line-strong),
+      6px 0 0 -2px var(--surface), 7px 0 0 -2px var(--line-strong),
       0 6px 0 -3px rgba(0, 0, 0, 0.35);
   }
-  .book:hover .book__cover { outline: 3px solid #f2c14e; outline-offset: 3px; }
+  .book:hover .book__cover { outline: 3px solid var(--gold); outline-offset: 3px; }
 
   .book__cover--crimson { --c: var(--c-crimson); }
   .book__cover--green { --c: var(--c-green); }
@@ -54,7 +54,7 @@ const { title, author, subject, href = "/reading", tone = "crimson" } = Astro.pr
     flex: 0 0 11%;
     background:
       linear-gradient(to right, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.1) 70%, rgba(255, 255, 255, 0.1));
-    border-right: 2px solid #000;
+    border-right: 1px solid var(--line-strong);
   }
 
   .book__face {
@@ -67,11 +67,11 @@ const { title, author, subject, href = "/reading", tone = "crimson" } = Astro.pr
     margin: 0.55rem;
     padding: 0.5rem;
     text-align: center;
-    color: #fdf6e3;
-    border: 2px solid rgba(253, 246, 227, 0.8);
+    color: var(--cover-ink);
+    border: 2px solid rgba(244, 238, 219, 0.8);
   }
   .book__title { font-size: clamp(1rem, 0.9rem + 0.5vw, 1.25rem); line-height: 1.15; }
-  .book__rule { width: 55%; height: 2px; background: #f2c14e; }
+  .book__rule { width: 55%; height: 2px; background: var(--gold); }
   .book__author {
     font-size: 0.68rem;
     letter-spacing: 0.18em;
@@ -86,7 +86,7 @@ const { title, author, subject, href = "/reading", tone = "crimson" } = Astro.pr
     font-weight: 600;
     letter-spacing: 0.2em;
     text-transform: uppercase;
-    color: var(--ink-2);
+    color: var(--text-2);
   }
   .book:hover .book__subject { color: var(--accent); }
 </style>

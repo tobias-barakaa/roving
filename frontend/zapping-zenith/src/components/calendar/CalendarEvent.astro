@@ -1,0 +1,12 @@
+---
+// Presentational event row. Used by UpcomingSessions once scheduling data is connected.
+interface Props { title: string; time: string; group?: string; }
+const { title, time, group } = Astro.props;
+---
+<li class="cev"><span class="cev__time">{time}</span><span class="cev__main"><strong>{title}</strong>{group && <small>{group}</small>}</span></li>
+<style>
+  .cev { display: grid; grid-template-columns: 6rem 1fr; gap: 1rem; padding: 0.8rem 0; border-bottom: 1px solid var(--line); }
+  .cev__time { font-family: var(--font-display); font-size: 1.2rem; color: var(--accent); }
+  .cev__main { display: grid; }
+  .cev__main small { color: var(--text-3); }
+</style>

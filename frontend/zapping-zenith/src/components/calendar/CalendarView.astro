@@ -1,0 +1,36 @@
+---
+import CalendarHeader from "./CalendarHeader.astro";
+---
+<section class="cal" data-calendar aria-label="Calendar">
+  <CalendarHeader />
+  <div class="cal__grid" data-cal-grid></div>
+</section>
+
+<script>
+  const root = document.querySelector<HTMLElement>("[data-calendar]")!;
+  const grid = root.querySelector<HTMLElement>("[data-cal-grid]")!;
+  const title = root.querySelector<HTMLElement>("[data-cal-title]")!;
+  let cursor = new Date(); cursor.setDate(1);
+
+  function render() {
+    grid.replaceChildren();
+    for (const d of ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]) {
+      const h = document.createElement("div"); h.className = "cal__dow"; h.textContent = d; grid.append(h);
+    }
+    title.textContent = cursor.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+    const offset = (cursor.getDay() + 6) % 7; // Monday first
+    const start = new Date(cursor.getFullYear(), cursor.getMonth(), 1 - offset);
+    const todayKey = new Date().toDateString();
+    for (let i = 0; i < 42; i++) {
+      const day = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+      const c = document.createElement("div");
+      c.className = "cal__day" + (day.getMonth() !== cursor.getMonth() ? " is-off" : "") + (day.toDateString() === todayKey ? " is-today" : "");
+      const s = document.createElement("span"); s.textContent = String(day.getDate()); c.append(s);
+      grid.append(c);
+    }
+  }
+  root.querySelector("[data-cal-prev]")!.addEventListener("click", () => { cursor.setMonth(cursor.getMonth() - 1); render(); });
+  root.querySelector("[data-cal-next]")!.addEventListener("click", () => { cursor.setMonth(cursor.getMonth() + 1); render(); });
+  root.querySelector("[data-cal-today]")!.addEventListener("click", () => { cursor = new Date(); cursor.setDate(1); render(); });
+  render();
+</script>

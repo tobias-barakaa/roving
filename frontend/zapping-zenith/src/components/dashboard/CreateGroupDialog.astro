@@ -1,0 +1,85 @@
+<dialog class="dialog" id="create-group-dialog" aria-labelledby="cg-title">
+  <form method="dialog" id="create-group-form" novalidate>
+    <div>
+      <span class="eyebrow">New group</span>
+      <h2 id="cg-title">Create a study group</h2>
+    </div>
+
+    <div class="field">
+      <label for="cg-name">Group name</label>
+      <input class="input" id="cg-name" name="name" type="text" required autocomplete="off" placeholder="e.g. Evening Mathematics" />
+      <p class="field__error" data-error-for="name" hidden></p>
+    </div>
+
+    <div class="field">
+      <label for="cg-desc">Description</label>
+      <textarea class="textarea" id="cg-desc" name="description" placeholder="What will this group read or study together?"></textarea>
+    </div>
+
+    <fieldset class="field" style="border:0;padding:0;margin:0">
+      <legend class="label" style="padding:0;margin-bottom:0.35rem">Visibility</legend>
+      <div class="radios">
+        <label class="radio"><input type="radio" name="visibility" value="public" checked /><div><strong>Public</strong><span>Anyone can find this group in Discover.</span></div></label>
+        <label class="radio"><input type="radio" name="visibility" value="private" /><div><strong>Private</strong><span>Hidden from Discover. Only members can see it.</span></div></label>
+      </div>
+    </fieldset>
+
+    <p class="notice notice--error" data-form-error role="alert" hidden></p>
+    <p class="notice notice--ok" data-form-ok role="status" hidden>Group created.</p>
+
+    <div class="dialog__row">
+      <button class="btn btn--ghost" type="button" data-close-dialog>Cancel</button>
+      <button class="btn btn--primary" type="submit">Create group</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+  import { groupsApi } from "../../lib/api/groups";
+  import { describeError } from "../../lib/api/client";
+
+  const dialog = document.getElementById("create-group-dialog") as HTMLDialogElement;
+  const form = document.getElementById("create-group-form") as HTMLFormElement;
+  const errBox = form.querySelector<HTMLElement>("[data-form-error]")!;
+  const okBox = form.querySelector<HTMLElement>("[data-form-ok]")!;
+  const nameErr = form.querySelector<HTMLElement>("[data-error-for=name]")!;
+  const submit = form.querySelector<HTMLButtonElement>("button[type=submit]")!;
+  let opener: HTMLElement | null = null;
+
+  document.addEventListener("click", (e) => {
+    const t = (e.target as HTMLElement).closest<HTMLElement>("[data-open-create-group]");
+    if (!t) return;
+    opener = t;
+    form.reset(); errBox.hidden = okBox.hidden = nameErr.hidden = true;
+    dialog.showModal();
+    form.querySelector<HTMLInputElement>("[name=name]")!.focus();
+  });
+  form.querySelector("[data-close-dialog]")!.addEventListener("click", () => dialog.close());
+  dialog.addEventListener("close", () => opener?.focus());
+  dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    errBox.hidden = okBox.hidden = nameErr.hidden = true;
+    const d = new FormData(form);
+    const name = String(d.get("name") ?? "").trim();
+    if (!name) { nameErr.textContent = "Give your group a name."; nameErr.hidden = false; return; }
+
+    submit.disabled = true;
+    try {
+      await groupsApi.create({
+        name,
+        description: String(d.get("description") ?? "").trim(),
+        visibility: d.get("visibility") === "private" ? "private" : "public",
+      });
+      okBox.hidden = false;
+      window.dispatchEvent(new CustomEvent("rovingr:groups-changed"));
+      setTimeout(() => dialog.close(), 900);
+    } catch (err) {
+      errBox.textContent = describeError(err);
+      errBox.hidden = false;
+    } finally {
+      submit.disabled = false;
+    }
+  });
+</script>

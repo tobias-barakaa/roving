@@ -1,0 +1,26 @@
+---
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import GroupBrowser from "../../components/dashboard/GroupBrowser.astro";
+---
+<DashboardLayout title="Overview">
+  <header class="page-head">
+    <div>
+      <span class="eyebrow">Overview</span>
+      <h1 data-welcome>Welcome</h1>
+      <p>Find a study community, pick up where you left off, or start a new group.</p>
+    </div>
+    <button class="btn btn--primary" type="button" data-open-create-group>Create group</button>
+  </header>
+
+  <GroupBrowser id="my-groups-title" mode="mine" eyebrow="Your shelf" title="Your groups" />
+  <GroupBrowser id="discover-title" mode="discover" eyebrow="Discover" title="Public study groups" search />
+</DashboardLayout>
+
+<script>
+  import { requireUser, displayNameOf } from "../../lib/auth/session";
+  requireUser().then((u) => {
+    const h = new Date().getHours();
+    const part = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+    document.querySelector("[data-welcome]")!.textContent = `${part}, ${displayNameOf(u)}`;
+  });
+</script>

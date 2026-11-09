@@ -1,0 +1,16 @@
+---
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import CalendarView from "../../components/calendar/CalendarView.astro";
+import UpcomingSessions from "../../components/calendar/UpcomingSessions.astro";
+---
+<DashboardLayout title="Calendar">
+  <header class="page-head">
+    <div>
+      <span class="eyebrow">Workspace</span>
+      <h1>Calendar</h1>
+      <p>Your study sessions, drawn from group schedules. Event data is coming soon; the month view below is a working calendar.</p>
+    </div>
+  </header>
+  <div class="block"><CalendarView /></div>
+  <UpcomingSessions />
+</DashboardLayout>

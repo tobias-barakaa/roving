@@ -1,0 +1,24 @@
+---
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
+---
+<DashboardLayout title="Profile">
+  <header class="page-head"><div><span class="eyebrow">Account</span><h1>Profile</h1><p>How you appear to other members.</p></div></header>
+  <dl class="cards" style="grid-template-columns:repeat(auto-fit,minmax(15rem,1fr))" data-profile></dl>
+</DashboardLayout>
+
+<script>
+import { requireUser } from "../../lib/auth/session";
+
+requireUser().then((u) => {
+    const box = document.querySelector("[data-profile]")!;
+    const rows: [string, string | undefined][] = [["Display name", u.displayName as string | undefined], ["Email", u.email]];
+    for (const [k, v] of rows) {
+      const d = document.createElement("div");
+      d.className = "state"; d.style.justifyItems = "start"; d.style.textAlign = "left";
+      const dt = document.createElement("dt"); dt.className = "eyebrow"; dt.textContent = k;
+      const dd = document.createElement("dd"); dd.style.margin = "0"; dd.style.fontFamily = "var(--font-display)"; dd.style.fontSize = "1.4rem";
+      dd.textContent = v || "Not set";
+      d.append(dt, dd); box.append(d);
+    }
+  });
+</script>

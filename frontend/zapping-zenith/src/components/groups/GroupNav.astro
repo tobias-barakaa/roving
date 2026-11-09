@@ -1,0 +1,23 @@
+---
+interface Props { id: string; active: string; }
+const { id, active } = Astro.props;
+const base = `/groups/${encodeURIComponent(id)}`;
+// requires: roles allowed to see the tab. Hidden until the group loads; the backend still enforces.
+const tabs = [
+  { key: "home", label: "Home", href: base },
+  { key: "rooms", label: "Rooms", href: `${base}/rooms` },
+  { key: "sessions", label: "Sessions", href: `${base}/sessions` },
+  { key: "chat", label: "Chat", href: `${base}/chat` },
+  { key: "reading", label: "Reading", href: `${base}/reading` },
+  { key: "members", label: "Members", href: `${base}/members` },
+  { key: "chess", label: "Chess", href: `${base}/chess` },
+  { key: "settings", label: "Settings", href: `${base}/settings`, requires: "owner,admin" },
+];
+---
+<nav class="gnav" aria-label="Group">
+  {tabs.map((t) => (
+    <a class:list={[{ "is-active": active === t.key }]} href={t.href}
+       aria-current={active === t.key ? "page" : undefined}
+       hidden={!!t.requires} data-requires-role={t.requires}>{t.label}</a>
+  ))}
+</nav>

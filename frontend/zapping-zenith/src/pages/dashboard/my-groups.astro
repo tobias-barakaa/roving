@@ -1,0 +1,15 @@
+---
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import GroupBrowser from "../../components/dashboard/GroupBrowser.astro";
+---
+<DashboardLayout title="My Groups">
+  <header class="page-head">
+    <div>
+      <span class="eyebrow">Your shelf</span>
+      <h1>My groups</h1>
+      <p>Every group you belong to.</p>
+    </div>
+    <button class="btn btn--primary" type="button" data-open-create-group>Create group</button>
+  </header>
+  <GroupBrowser id="mine-title" mode="mine" title="Groups you've joined" />
+</DashboardLayout>

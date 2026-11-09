@@ -1,0 +1,15 @@
+---
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import GroupBrowser from "../../components/dashboard/GroupBrowser.astro";
+---
+<DashboardLayout title="Discover Groups">
+  <header class="page-head">
+    <div>
+      <span class="eyebrow">Discover</span>
+      <h1>Find your people</h1>
+      <p>Public study groups you can join. Private groups never appear here.</p>
+    </div>
+    <button class="btn btn--primary" type="button" data-open-create-group>Create group</button>
+  </header>
+  <GroupBrowser id="discover-title" mode="discover" title="Public study groups" search />
+</DashboardLayout>

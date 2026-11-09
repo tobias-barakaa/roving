@@ -1,0 +1,90 @@
+---
+const path = Astro.url.pathname;
+const sections = [
+  { label: "Workspace", items: [
+    { label: "Overview", href: "/dashboard", exact: true },
+    { label: "Discover Groups", href: "/dashboard/discover" },
+    { label: "Calendar", href: "/dashboard/calendar" },
+  ]},
+];
+const personal = [
+  { label: "My Reading", href: "/dashboard/reading" },
+  { label: "My Notes", href: "/dashboard/notes" },
+  { label: "Focus History", href: "/dashboard/focus" },
+  { label: "Chess", href: "/dashboard/chess" },
+];
+const account = [
+  { label: "Notifications", href: "/dashboard/notifications" },
+  { label: "Profile", href: "/dashboard/profile" },
+  { label: "Settings", href: "/dashboard/settings" },
+];
+const active = (href: string, exact = false) => (exact ? path === href : path === href || path.startsWith(href + "/"));
+---
+<nav class="sidebar__nav" aria-label="Dashboard">
+  {sections.map((s) => (
+    <div class="sidebar__group">
+      <h2 class="sidebar__label">{s.label}</h2>
+      {s.items.map((i) => (
+        <a class:list={["sidebar__link", { "is-active": active(i.href, i.exact) }]} href={i.href} aria-current={active(i.href, i.exact) ? "page" : undefined}>{i.label}</a>
+      ))}
+    </div>
+  ))}
+
+  <div class="sidebar__group">
+    <h2 class="sidebar__label">Your groups</h2>
+    <div data-sidebar-groups aria-live="polite"><p class="sidebar__note">Loading…</p></div>
+    <button class="btn btn--ghost btn--sm sidebar__create" type="button" data-open-create-group>+ Create group</button>
+  </div>
+
+  <div class="sidebar__group">
+    <h2 class="sidebar__label">Personal</h2>
+    {personal.map((i) => (
+      <a class:list={["sidebar__link", { "is-active": active(i.href) }]} href={i.href} aria-current={active(i.href) ? "page" : undefined}>{i.label}</a>
+    ))}
+  </div>
+
+  <div class="sidebar__group">
+    <h2 class="sidebar__label">Account</h2>
+    {account.map((i) => (
+      <a class:list={["sidebar__link", { "is-active": active(i.href) }]} href={i.href} aria-current={active(i.href) ? "page" : undefined}>{i.label}</a>
+    ))}
+  </div>
+</nav>
+
+<script>
+  import { groupsApi } from "../../lib/api/groups";
+  import { requireUser } from "../../lib/auth/session";
+
+  const box = document.querySelector<HTMLElement>("[data-sidebar-groups]")!;
+  const current = window.location.pathname.match(/^\/groups\/([^/]+)/)?.[1];
+
+  async function load() {
+    try {
+      await requireUser();
+      const page = await groupsApi.mine();
+      box.replaceChildren();
+      if (!page.items.length) {
+        const p = document.createElement("p");
+        p.className = "sidebar__note";
+        p.textContent = "You haven't joined any groups yet.";
+        box.append(p);
+        return;
+      }
+      for (const g of page.items) {
+        const a = document.createElement("a");
+        a.className = "sidebar__link" + (current === g.id ? " is-active" : "");
+        a.href = `/groups/${encodeURIComponent(g.id)}`;
+        a.textContent = g.name ?? "Untitled group";
+        box.append(a);
+      }
+    } catch {
+      box.replaceChildren();
+      const p = document.createElement("p");
+      p.className = "sidebar__note";
+      p.textContent = "Couldn't load your groups.";
+      box.append(p);
+    }
+  }
+  load();
+  window.addEventListener("rovingr:groups-changed", load);
+</script>

@@ -1,0 +1,17 @@
+---
+---
+<section class="block" aria-labelledby="upcoming-title" data-upcoming>
+  <div class="block__head"><h2 id="upcoming-title">Upcoming study sessions</h2></div>
+  <div data-upcoming-body></div>
+</section>
+
+<script>
+  import { getUpcomingSessions, calendarStatus } from "../../lib/api/calendar";
+  import { showState } from "../../lib/ui/state";
+  const body = document.querySelector<HTMLElement>("[data-upcoming-body]")!;
+  getUpcomingSessions().then((events) => {
+    if (!calendarStatus.connected || events === null) {
+      showState(body, "empty", { title: "Not connected yet", text: "Your group sessions will appear here once scheduling is linked to the calendar. Nothing is being loaded or faked." });
+    }
+  });
+</script>

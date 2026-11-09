@@ -1,0 +1,55 @@
+---
+import DashboardLayout from "./DashboardLayout.astro";
+import GroupNav from "../components/groups/GroupNav.astro";
+
+interface Props { id: string; active?: string; title?: string; }
+const { id, active = "home", title = "Group" } = Astro.props;
+---
+<DashboardLayout title={title}>
+  <header class="ghead" data-group-head data-group-id={id}>
+    <div class="ghead__top">
+      <div>
+        <span class="eyebrow" data-group-kicker>Study group</span>
+        <h1 data-group-name>Loading…</h1>
+        <p class="ghead__desc" data-group-desc></p>
+      </div>
+      <span class="ghead__role" data-group-role hidden></span>
+    </div>
+    <GroupNav id={id} active={active} />
+  </header>
+  <div data-group-error></div>
+  <slot />
+</DashboardLayout>
+
+<script>
+  import { groupsApi } from "../lib/api/groups";
+  import { describeError } from "../lib/api/client";
+  import { requireUser } from "../lib/auth/session";
+  import { showState } from "../lib/ui/state";
+
+  const head = document.querySelector<HTMLElement>("[data-group-head]")!;
+  const q = (s: string) => head.querySelector<HTMLElement>(s)!;
+
+  (async () => {
+    try {
+      await requireUser();
+      const g = await groupsApi.get(head.dataset.groupId!);
+      q("[data-group-name]").textContent = g.name ?? "Untitled group";
+      q("[data-group-desc]").textContent = g.description ?? "";
+      q("[data-group-kicker]").textContent = g.visibility === "private" ? "Private group" : "Public group";
+      document.title = `${g.name ?? "Group"} — Rovingr`;
+      if (g.role) {
+        const r = q("[data-group-role]");
+        r.textContent = g.role; r.hidden = false;
+        head.querySelectorAll<HTMLElement>("[data-requires-role]").forEach((el) => {
+          if (el.dataset.requiresRole!.split(",").includes(g.role!)) el.hidden = false;
+        });
+      }
+    } catch (err) {
+      q("[data-group-name]").textContent = "Group unavailable";
+      showState(document.querySelector<HTMLElement>("[data-group-error]")!, "error", {
+        title: "Couldn't open this group", text: describeError(err), action: { label: "Try again", onClick: () => location.reload() },
+      });
+    }
+  })();
+</script>

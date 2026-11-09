@@ -1,0 +1,25 @@
+---
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
+---
+<DashboardLayout title="Settings">
+  <header class="page-head"><div><span class="eyebrow">Account</span><h1>Settings</h1><p>Preferences are saved in this browser.</p></div></header>
+  <fieldset class="field" style="border:0;padding:0;margin:0;max-width:30rem">
+    <legend class="label" style="padding:0;margin-bottom:0.5rem">Theme</legend>
+    <div class="radios" data-theme-options>
+      <label class="radio"><input type="radio" name="theme" value="light" /><div><strong>Light</strong><span>Ivory paper, like a printed page.</span></div></label>
+      <label class="radio"><input type="radio" name="theme" value="dark" /><div><strong>Dark</strong><span>A softly lit library at night.</span></div></label>
+      <label class="radio"><input type="radio" name="theme" value="system" /><div><strong>Match my device</strong><span>Follow your system setting.</span></div></label>
+    </div>
+  </fieldset>
+</DashboardLayout>
+
+<script>
+
+import { getTheme, setTheme, type ThemeChoice } from "../../lib/theme";
+
+const radios = document.querySelectorAll<HTMLInputElement>("[data-theme-options] input");
+  radios.forEach((r) => {
+    r.checked = r.value === getTheme();
+    r.addEventListener("change", () => setTheme(r.value as ThemeChoice));
+  });
+</script>

@@ -1,0 +1,108 @@
+---
+interface Props {
+  mode: "discover" | "mine";
+  title: string;
+  eyebrow?: string;
+  search?: boolean;
+  id: string;
+}
+const { mode, title, eyebrow, search = false, id } = Astro.props;
+---
+<section class="block" data-group-browser data-mode={mode} aria-labelledby={id}>
+  <div class="block__head">
+    <div>
+      {eyebrow && <span class="eyebrow">{eyebrow}</span>}
+      <h2 id={id}>{title}</h2>
+    </div>
+  </div>
+  {search && (
+    <form class="searchbar" role="search" data-browser-search>
+      <label class="visually-hidden" for={`${id}-q`}>Search public groups</label>
+      <input class="input" id={`${id}-q`} name="q" type="search" placeholder="Search public study groups…" autocomplete="off" />
+      <button class="btn btn--primary" type="submit">Search</button>
+    </form>
+  )}
+  <div data-browser-body aria-live="polite"></div>
+</section>
+
+<script>
+  import { groupsApi, type Group } from "../../lib/api/groups";
+  import { describeError } from "../../lib/api/client";
+  import { requireUser } from "../../lib/auth/session";
+
+  import { groupCard } from "../../lib/ui/groupCard";
+
+  import { showState } from "../../lib/ui/state";
+
+  document.querySelectorAll<HTMLElement>("[data-group-browser]").forEach((root) => {
+    const mode = root.dataset.mode as "discover" | "mine";
+    const body = root.querySelector<HTMLElement>("[data-browser-body]")!;
+    const form = root.querySelector<HTMLFormElement>("[data-browser-search]");
+    const input = form?.querySelector<HTMLInputElement>("input");
+    let q = new URLSearchParams(location.search).get("q") ?? "";
+    if (input) input.value = q;
+
+    async function load() {
+      showState(body, "loading", { title: "Opening the shelves…" });
+      try {
+        await requireUser();
+        const page = mode === "mine" ? await groupsApi.mine() : await groupsApi.discover(q);
+        // Never show private groups in public discovery, even if the API returned one.
+        const items: Group[] = mode === "discover" ? page.items.filter((g) => g.visibility !== "private") : page.items;
+
+        if (!items.length) {
+          if (mode === "mine") {
+            showState(body, "empty", {
+              title: "No groups yet",
+              text: "Join a public group from Discover, or start your own and invite people to read with you.",
+              action: { label: "Create a group", onClick: () => document.querySelector<HTMLElement>("[data-open-create-group]")?.click() },
+            });
+          } else {
+            showState(body, "empty", {
+              title: q ? "No groups match that search" : "No public groups yet",
+              text: q ? "Try a different word, or create the group you were looking for." : "Be the first to create one.",
+            });
+          }
+          return;
+        }
+        const grid = document.createElement("div");
+        grid.className = "cards";
+        items.forEach((g) => grid.append(groupCard(g, mode === "mine")));
+        body.replaceChildren(grid);
+      } catch (err) {
+        showState(body, "error", { title: "Couldn't load groups", text: describeError(err), action: { label: "Try again", onClick: load } });
+      }
+    }
+
+    form?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      q = input!.value.trim();
+      const url = new URL(location.href);
+      q ? url.searchParams.set("q", q) : url.searchParams.delete("q");
+      history.replaceState(null, "", url);
+      load();
+    });
+
+    body.addEventListener("click", async (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-join-id]");
+      if (!btn) return;
+      btn.disabled = true;
+      btn.textContent = "Joining…";
+      try {
+        await groupsApi.join(btn.dataset.joinId!);
+        window.dispatchEvent(new CustomEvent("rovingr:groups-changed"));
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = "Join group";
+        const note = document.createElement("p");
+        note.className = "notice notice--error";
+        note.setAttribute("role", "alert");
+        note.textContent = describeError(err);
+        btn.closest(".gcard__actions")?.append(note);
+      }
+    });
+
+    window.addEventListener("rovingr:groups-changed", load);
+    load();
+  });
+</script>

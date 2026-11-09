@@ -1,0 +1,80 @@
+---
+import "../styles/global.css";
+import "../styles/dashboard.css";
+import BaseHead from "../components/common/BaseHead.astro";
+import ThemeToggle from "../components/common/ThemeToggle.astro";
+import Sidebar from "../components/dashboard/Sidebar.astro";
+import CreateGroupDialog from "../components/dashboard/CreateGroupDialog.astro";
+
+interface Props { title: string; }
+const { title } = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+  <head><BaseHead title={`${title} — Rovingr`} /><meta name="robots" content="noindex" /></head>
+  <body class="app">
+    <a class="skip" href="#content">Skip to content</a>
+
+    <header class="appbar">
+      <button class="btn btn--ghost btn--sm appbar__menu" type="button" data-menu aria-controls="sidebar" aria-expanded="false" aria-label="Open navigation">☰</button>
+      <a class="appbar__brand" href="/dashboard" aria-label="Rovingr dashboard">rovingr<span>.</span></a>
+      <span class="appbar__spacer"></span>
+      <span class="appbar__user" data-user-name></span>
+      <ThemeToggle />
+      <button class="btn btn--ghost btn--sm" type="button" data-logout>Sign out</button>
+    </header>
+
+    <div class="app__body">
+      <aside class="sidebar" id="sidebar"><Sidebar /></aside>
+      <div class="scrim" data-scrim hidden></div>
+      <main class="app__main" id="content"><div data-auth-error></div><slot /></main>
+    </div>
+
+    <CreateGroupDialog />
+  </body>
+</html>
+
+<style is:global>
+  .skip { position: absolute; left: 1rem; top: -4rem; z-index: 60; padding: 0.5rem 1rem; background: var(--surface); color: var(--text); border: 1px solid var(--line-strong); }
+  .skip:focus { top: 1rem; }
+</style>
+
+<script>
+  import { requireUser, displayNameOf, clearSession } from "../lib/auth/session";
+  import { authApi } from "../lib/api/auth";
+  import { showState } from "../lib/ui/state";
+
+  // 1. session check: redirects to /login on 401, otherwise reveals the page
+  requireUser()
+    .then((u) => {
+      document.querySelectorAll("[data-user-name]").forEach((n) => (n.textContent = displayNameOf(u)));
+      document.body.classList.add("is-ready");
+    })
+    .catch((err: Error) => {
+      document.body.classList.add("is-ready");
+      const box = document.querySelector<HTMLElement>("[data-auth-error]")!;
+      showState(box, "error", { title: "Couldn't check your session", text: err.message, action: { label: "Reload", onClick: () => location.reload() } });
+    });
+
+  // 2. sign out
+  document.querySelector("[data-logout]")?.addEventListener("click", async () => {
+    try { await authApi.logout(); } catch {}
+    clearSession();
+    window.location.href = "/login";
+  });
+
+  // 3. mobile drawer
+  const menu = document.querySelector<HTMLButtonElement>("[data-menu]")!;
+  const side = document.getElementById("sidebar")!;
+  const scrim = document.querySelector<HTMLElement>("[data-scrim]")!;
+  const setOpen = (open: boolean) => {
+    side.classList.toggle("is-open", open);
+    scrim.hidden = !open;
+    menu.setAttribute("aria-expanded", String(open));
+    menu.textContent = open ? "✕" : "☰";
+  };
+  menu.addEventListener("click", () => setOpen(!side.classList.contains("is-open")));
+  scrim.addEventListener("click", () => setOpen(false));
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") setOpen(false); });
+  side.addEventListener("click", (e) => { if ((e.target as HTMLElement).closest("a, [data-open-create-group]")) setOpen(false); });
+</script>
