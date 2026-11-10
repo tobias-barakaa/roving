@@ -24,8 +24,30 @@ type Handler struct {
 // allowedOrigin is cfg.FrontendOrigin. Browsers always send Origin on a
 // WebSocket handshake and cookies ride along automatically, so it must match
 // exactly or any website could open a socket as a logged-in user.
+// func NewHandler(svc *Service, hub *Hub, requireAuth gin.HandlerFunc, allowedOrigin string) *Handler {
+// 	allowed := strings.TrimRight(allowedOrigin, "/")
+// 	return &Handler{
+// 		svc:         svc,
+// 		hub:         hub,
+// 		requireAuth: requireAuth,
+// 		upgrader: websocket.Upgrader{
+// 			ReadBufferSize:  1024,
+// 			WriteBufferSize: 1024,
+// 			CheckOrigin: func(r *http.Request) bool {
+// 				origin := r.Header.Get("Origin")
+// 				// return origin == "" || strings.EqualFold(strings.TrimRight(origin, "/"), allowed)
+
+//     return origin != "" &&
+//         strings.TrimRight(origin, "/") == allowed
+
+// 			},
+// 		},
+// 	}
+// }
+
 func NewHandler(svc *Service, hub *Hub, requireAuth gin.HandlerFunc, allowedOrigin string) *Handler {
 	allowed := strings.TrimRight(allowedOrigin, "/")
+
 	return &Handler{
 		svc:         svc,
 		hub:         hub,
@@ -35,26 +57,46 @@ func NewHandler(svc *Service, hub *Hub, requireAuth gin.HandlerFunc, allowedOrig
 			WriteBufferSize: 1024,
 			CheckOrigin: func(r *http.Request) bool {
 				origin := r.Header.Get("Origin")
-				return origin == "" || strings.EqualFold(strings.TrimRight(origin, "/"), allowed)
+
+				return origin != "" &&
+					strings.TrimRight(origin, "/") == allowed
 			},
 		},
 	}
 }
 
+// func (h *Handler) Routes(rg *gin.RouterGroup) {
+// 	// g := rg.Group("/groups/:groupId/chess/games", h.requireAuth)
+// 	g := rg.Group("/groups/:id/chess/games", h.requireAuth)
+// 	{
+// 		g.POST("", h.create)
+// 		g.GET("/:id", h.get)
+// 		g.POST("/:id/join", h.join)
+// 		g.POST("/:id/move", h.move)
+// 		g.GET("/:id/moves", h.moves)
+// 		g.GET("/:id/legal-moves", h.legalMoves)
+// 		g.POST("/:id/resign", h.resign)
+// 		g.POST("/:id/draw/offer", h.offerDraw)
+// 		g.POST("/:id/draw/accept", h.acceptDraw)
+// 		g.POST("/:id/draw/decline", h.declineDraw)
+// 		g.GET("/:id/ws", h.ws)
+// 	}
+// }
+
 func (h *Handler) Routes(rg *gin.RouterGroup) {
-	g := rg.Group("/groups/:groupId/chess/games", h.requireAuth)
+	g := rg.Group("/groups/:id/chess/games", h.requireAuth)
 	{
 		g.POST("", h.create)
-		g.GET("/:id", h.get)
-		g.POST("/:id/join", h.join)
-		g.POST("/:id/move", h.move)
-		g.GET("/:id/moves", h.moves)
-		g.GET("/:id/legal-moves", h.legalMoves)
-		g.POST("/:id/resign", h.resign)
-		g.POST("/:id/draw/offer", h.offerDraw)
-		g.POST("/:id/draw/accept", h.acceptDraw)
-		g.POST("/:id/draw/decline", h.declineDraw)
-		g.GET("/:id/ws", h.ws)
+		g.GET("/:gid", h.get)
+		g.POST("/:gid/join", h.join)
+		g.POST("/:gid/move", h.move)
+		g.GET("/:gid/moves", h.moves)
+		g.GET("/:gid/legal-moves", h.legalMoves)
+		g.POST("/:gid/resign", h.resign)
+		g.POST("/:gid/draw/offer", h.offerDraw)
+		g.POST("/:gid/draw/accept", h.acceptDraw)
+		g.POST("/:gid/draw/decline", h.declineDraw)
+		g.GET("/:gid/ws", h.ws)
 	}
 }
 
@@ -156,26 +198,56 @@ func (h *Handler) declineDraw(c *gin.Context) {
 	c.JSON(http.StatusOK, state)
 }
 
+// func (h *Handler) ws(c *gin.Context) {
+// 	userID := auth.UserID(c)
+// 	state, err := h.svc.Connect(c.Request.Context(), userID, c.Param("groupId"), c.Param("id"))
+// 	if err != nil {
+// 		h.writeErr(c, err)
+// 		return
+// 	}
+
+// 	// On failure Upgrade has already written the HTTP error response.
+// 	conn, err := h.upgrader.Upgrade(c.Writer, c.Request, nil)
+// 	if err != nil {
+// 		return
+// 	}
+
+// 	cl := h.hub.register(userID, c.Param("id"), conn, state)
+// 	if cl == nil {
+// 		_ = conn.Close()
+// 		return
+// 	}
+// 	cl.readPump() // blocks until the connection ends
+// }
+
 func (h *Handler) ws(c *gin.Context) {
 	userID := auth.UserID(c)
-	state, err := h.svc.Connect(c.Request.Context(), userID, c.Param("groupId"), c.Param("id"))
+	groupID := c.Param("id")
+	gameID := c.Param("gid")
+
+	state, err := h.svc.Connect(
+		c.Request.Context(),
+		userID,
+		groupID,
+		gameID,
+	)
 	if err != nil {
 		h.writeErr(c, err)
 		return
 	}
 
-	// On failure Upgrade has already written the HTTP error response.
 	conn, err := h.upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		return
 	}
 
-	cl := h.hub.register(userID, c.Param("id"), conn, state)
+	cl := h.hub.register(userID, gameID, conn, state)
 	if cl == nil {
 		_ = conn.Close()
 		return
 	}
-	cl.readPump() // blocks until the connection ends
+
+	cl.readPump()
 }
 
 // ---------- helpers ----------

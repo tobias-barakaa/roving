@@ -11,30 +11,75 @@ import (
 )
 
 // CORS allows exactly one origin, with credentials (cookies).
-func CORS(origin string) gin.HandlerFunc {
-	return func(c *gin.Context) {
+// func CORS(origin string) gin.HandlerFunc {
+// 	return func(c *gin.Context) {
 
-	log.Printf(
-    "Origin check: received=%q expected=%q",
-    c.GetHeader("Origin"),
-    origin,
-		)
-		if c.GetHeader("Origin") == origin {
-			h := c.Writer.Header()
-			h.Set("Access-Control-Allow-Origin", origin)
-			h.Set("Access-Control-Allow-Credentials", "true")
-			h.Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-			h.Set("Access-Control-Allow-Headers", "Content-Type")
-			h.Set("Access-Control-Max-Age", "600")
-			h.Add("Vary", "Origin")
-		}
-		if c.Request.Method == http.MethodOptions {
-			c.AbortWithStatus(http.StatusNoContent)
-			return
-		}
-		c.Next()
-	}
+// 	log.Printf(
+//     "Origin check: received=%q expected=%q",
+//     c.GetHeader("Origin"),
+//     origin,
+// 		)
+// 		if c.GetHeader("Origin") == origin {
+// 			h := c.Writer.Header()
+// 			h.Set("Access-Control-Allow-Origin", origin)
+// 			h.Set("Access-Control-Allow-Credentials", "true")
+// 			h.Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+// 			h.Set("Access-Control-Allow-Headers", "Content-Type")
+// 			h.Set("Access-Control-Max-Age", "600")
+// 			h.Add("Vary", "Origin")
+// 		}
+// 		if c.Request.Method == http.MethodOptions {
+// 			c.AbortWithStatus(http.StatusNoContent)
+// 			return
+// 		}
+// 		c.Next()
+// 	}
+// }
+
+
+
+// CORS allows exactly one frontend origin, including cookie credentials.
+func CORS(origin string) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        receivedOrigin := c.GetHeader("Origin")
+
+        log.Printf(
+            "CORS: received origin=%q, expected origin=%q, method=%q",
+            receivedOrigin,
+            origin,
+            c.Request.Method,
+        )
+
+        if receivedOrigin == origin {
+            h := c.Writer.Header()
+
+            h.Set("Access-Control-Allow-Origin", origin)
+            h.Set("Access-Control-Allow-Credentials", "true")
+
+            h.Set(
+                "Access-Control-Allow-Methods",
+                "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+            )
+
+            h.Set(
+                "Access-Control-Allow-Headers",
+                "Content-Type, Accept",
+            )
+
+            h.Set("Access-Control-Max-Age", "600")
+            h.Add("Vary", "Origin")
+        }
+
+        // Handle browser preflight requests before routing.
+        if c.Request.Method == http.MethodOptions {
+            c.AbortWithStatus(http.StatusNoContent)
+            return
+        }
+
+        c.Next()
+    }
 }
+
 
 // RequireSameOrigin is the CSRF defence for cookie auth: state-changing
 // requests must come from the configured frontend origin. Together with

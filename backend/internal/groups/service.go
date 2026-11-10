@@ -39,7 +39,7 @@ func NewService(repo *Repository, pauser Pauser) *Service {
 // ==================== Create ====================
 
 func (s *Service) Create(ctx context.Context, actorID string, req CreateGroupRequest) (*Group, Role, error) {
-	slug := Slugify(req.Slug)
+	slug := Slugify(req.Name)
 	if slug == "" {
 		return nil, RoleNone, fmt.Errorf("slug is empty after normalization")
 	}

@@ -112,17 +112,39 @@ func (h *Handler) register(c *gin.Context) {
 		return
 	}
 
-	h.sendTokenMail(u.ID, u.Email, PurposeVerifyEmail, verifyTTL, "/verify-email",
-		"Confirm your Rovingr email", "Welcome to Rovingr! Confirm your email address:", "This link expires in 24 hours.")
-
 	if h.cfg.RequireVerifiedEmail {
-		c.JSON(http.StatusCreated, gin.H{"message": "check your email to verify your account"})
+		h.sendTokenMail(
+			u.ID,
+			u.Email,
+			PurposeVerifyEmail,
+			verifyTTL,
+			"/verify-email",
+			"Confirm your Rovingr email",
+			"Welcome to Rovingr! Confirm your email address:",
+			"This link expires in 24 hours.",
+		)
+
+		c.JSON(http.StatusCreated, gin.H{
+			"message": "check your email to verify your account",
+		})
 		return
 	}
+
+	// Email verification is disabled: mark the account verified immediately.
+	if err := h.users.MarkEmailVerified(c.Request.Context(), u.ID); err != nil {
+		h.fail(c, err)
+		return
+	}
+
+	now := time.Now()
+	u.EmailVerifiedAt = &now
+
+	// Give the user a session immediately.
 	if err := h.startSession(c, u.ID); err != nil {
 		h.fail(c, err)
 		return
 	}
+
 	c.JSON(http.StatusCreated, userJSON(u))
 }
 
@@ -131,37 +153,66 @@ func (h *Handler) login(c *gin.Context) {
 	if !bind(c, &req) {
 		return
 	}
-	invalid := func() { c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"}) }
 
-	u, err := h.users.GetByEmail(c.Request.Context(), users.NormalizeEmail(req.Email))
+	invalid := func() {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "invalid email or password",
+		})
+	}
+
+	u, err := h.users.GetByEmail(
+		c.Request.Context(),
+		users.NormalizeEmail(req.Email),
+	)
+
 	if errors.Is(err, users.ErrNotFound) {
-		_, _ = VerifyPassword(req.Password, dummyHash) // equalise timing
+		_, _ = VerifyPassword(req.Password, dummyHash)
 		invalid()
 		return
 	}
+
 	if err != nil {
 		h.fail(c, err)
 		return
 	}
+
 	ok, err := VerifyPassword(req.Password, u.PasswordHash)
 	if err != nil {
 		h.fail(c, err)
 		return
 	}
+
 	if !ok {
 		invalid()
 		return
 	}
+
+	// Only require email verification when enabled.
 	if h.cfg.RequireVerifiedEmail && u.EmailVerifiedAt == nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": "email_not_verified"})
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "email_not_verified",
+		})
 		return
 	}
+
+	// Credentials are valid: create a session.
 	if err := h.startSession(c, u.ID); err != nil {
 		h.fail(c, err)
 		return
 	}
+
 	c.JSON(http.StatusOK, userJSON(u))
 }
+// 	if h.cfg.RequireVerifiedEmail && u.EmailVerifiedAt == nil {
+// 		c.JSON(http.StatusForbidden, gin.H{"error": "email_not_verified"})
+// 		return
+// 	}
+// 	if err := h.startSession(c, u.ID); err != nil {
+// 		h.fail(c, err)
+// 		return
+// 	}
+// 	c.JSON(http.StatusOK, userJSON(u))
+// }
 
 func (h *Handler) logout(c *gin.Context) {
 	if raw, err := c.Cookie(CookieName); err == nil {
@@ -344,8 +395,11 @@ func (h *Handler) sendTokenMail(userID, email, purpose string, ttl time.Duration
 			return
 		}
 		// link := h.cfg.FrontendOrigin + path + "?token=" + url.QueryEscape(tok)
-		link := "http://zanele.zelisline.com:8080/api/v1/auth" + path +
-    "?token=" + url.QueryEscape(tok)
+		// link := "http://zanele.zelisline.com:8080/api/v1/auth" + path +
+  //   "?token=" + url.QueryEscape(tok)
+
+    link := strings.TrimRight(h.cfg.FrontendOrigin, "/") + path +
+        "?token=" + url.QueryEscape(tok)
 		text := lead + "\n\n" + link + "\n\n" + tail
 		html := "<p>" + lead + "</p><p><a href=\"" + link + "\">" + link + "</a></p><p>" + tail + "</p>"
 		if err := h.mailer.Send(ctx, email, subject, html, text); err != nil {

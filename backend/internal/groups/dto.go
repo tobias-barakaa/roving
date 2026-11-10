@@ -7,7 +7,7 @@ import "time"
 
 type CreateGroupRequest struct {
 	Name        string `json:"name"        binding:"required,min=1,max=100"`
-	Slug        string `json:"slug"        binding:"required,min=3,max=60"`
+	// Slug        string `json:"slug"        binding:"required,min=3,max=60"`
 	Description string `json:"description" binding:"max=2000"`
 	Visibility  string `json:"visibility"  binding:"required,oneof=private public"`
 }
