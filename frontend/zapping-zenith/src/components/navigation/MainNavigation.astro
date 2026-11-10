@@ -1,93 +1,34 @@
 ---
-// Index tabs, like the coloured dividers sticking out of a bound book.
-// The active tab turns into paper and joins the page below it.
+// The running head of the book: quiet section links between double rules.
 const items = [
-  { label: "Study Groups", href: "/groups", tone: "crimson" },
-  { label: "Reading", href: "/reading", tone: "green" },
-  { label: "Sessions", href: "/sessions", tone: "blue" },
-  { label: "Chess", href: "/chess", tone: "purple" },
-  { label: "Community", href: "/community", tone: "teal" },
+  { label: "Study Groups", href: "/dashboard/discover" },
+  { label: "Reading", href: "/dashboard/reading" },
+  { label: "Sessions", href: "/dashboard/calendar" },
+  { label: "Chess", href: "/dashboard/chess" },
+  { label: "Community", href: "/dashboard" },
 ];
-
-const path = Astro.url.pathname;
-const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
+const path = Astro.url.pathname.replace(/\/+$/, '') || '/';
 ---
-
-<nav class="tabs" aria-label="Sections">
-  <ul class="tabs__list">
-    {
-      items.map((item) => (
-        <li>
-          <a
-            class:list={["tab", `tab--${item.tone}`, { "is-active": isActive(item.href) }]}
-            href={item.href}
-            aria-current={isActive(item.href) ? "page" : undefined}
-          >
-            {item.label}
-          </a>
-        </li>
-      ))
-    }
+<nav class="main-nav" aria-label="Sections">
+  <ul class="wrap main-nav__list">
+    {items.map((i) => (
+      <li>
+        <a class:list={["main-nav__link", { "is-active": path === i.href }]} href={i.href}
+           aria-current={path === i.href ? "page" : undefined}>{i.label}</a>
+      </li>
+    ))}
   </ul>
 </nav>
 
 <style>
-  .tabs {
-    position: relative;
-    z-index: 2;
-    margin-bottom: -2px; /* tabs sit right on the top edge of the book */
+  .main-nav { background: var(--bg); border-bottom: 1px solid var(--line); }
+  .main-nav__list { display: flex; justify-content: center; gap: clamp(1.1rem, 4vw, 3rem); padding-block: 0.65rem; overflow-x: auto; scrollbar-width: none; }
+  .main-nav__list::-webkit-scrollbar { display: none; }
+  .main-nav__link {
+    display: inline-block; padding-block: 0.2rem; white-space: nowrap; font-size: 0.95rem; font-weight: 600;
+    letter-spacing: 0; text-decoration: none; color: var(--text-2);
+    border-bottom: 1px solid transparent;
   }
-
-  .tabs__list {
-    display: flex;
-    align-items: flex-end;
-    gap: 4px;
-    padding-left: clamp(0.5rem, 3vw, 2rem);
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: none;
-  }
-  .tabs__list::-webkit-scrollbar { display: none; }
-
-  .tab {
-    --tc: var(--c-crimson);
-    display: block;
-    margin-top: 0.5rem;
-    padding: 0.65rem clamp(0.9rem, 2.4vw, 1.7rem) 0.5rem;
-    white-space: nowrap;
-    font-size: 0.82rem;
-    font-weight: 600;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    text-decoration: none;
-    color: #fff;
-    background: var(--tc);
-    border: 2px solid #000;
-    border-bottom: 0;
-    border-radius: 10px 10px 0 0;
-    box-shadow: inset 0 -6px 0 rgba(0, 0, 0, 0.18);
-    transition: margin-top 0.12s ease, padding 0.12s ease;
-  }
-
-  .tab--crimson { --tc: var(--c-crimson); }
-  .tab--green { --tc: var(--c-green); }
-  .tab--blue { --tc: var(--c-blue); }
-  .tab--purple { --tc: var(--c-purple); }
-  .tab--teal { --tc: var(--c-teal); }
-
-  .tab:hover {
-    margin-top: 0;
-    padding-top: 1.15rem;
-    color: #fff;
-  }
-
-  .tab.is-active {
-    margin-top: 0;
-    padding-top: 1.15rem;
-    padding-bottom: 0.7rem;
-    color: var(--ink);
-    background: var(--paper);
-    border-top: 6px solid var(--tc);
-    box-shadow: none;
-  }
+  .main-nav__link:hover, .main-nav__link.is-active { color: var(--accent); border-bottom-color: var(--secondary); }
+  @media (max-width: 40rem) { .main-nav__list { justify-content: flex-start; } }
 </style>

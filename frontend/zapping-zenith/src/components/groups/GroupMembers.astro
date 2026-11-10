@@ -1,0 +1,53 @@
+---
+import { ready, groupPaths } from "../../lib/groups/routes";
+interface Props { id: string; }
+const { id } = Astro.props;
+---
+<section data-gx-members data-group-id={id} aria-labelledby="gx-mem-title">
+  <div class="gx-section__head">
+    <div><h2 id="gx-mem-title">Members</h2></div>
+    {ready.members
+      ? <a class="gx-section__link" href={groupPaths(id).members}>View all →</a>
+      : <span class="gx-soon-text">Full list coming soon</span>}
+  </div>
+  <div class="gx-body" data-mem-body aria-live="polite"></div>
+</section>
+
+<script>
+  import { groupsApi } from "../../lib/api/groups";
+  import { describeError } from "../../lib/api/client";
+  import { requireUser } from "../../lib/auth/session";
+  import { roleLabel } from "../../lib/groups/context";
+  import { showState } from "../../lib/ui/state";
+
+  const root = document.querySelector<HTMLElement>("[data-gx-members]")!;
+  const gid = root.dataset.groupId!;
+  const body = root.querySelector<HTMLElement>("[data-mem-body]")!;
+  const el = (tag: string, cls: string, text?: string) => { const e = document.createElement(tag); e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+  const initials = (n: string) => n.trim().split(/\s+/).slice(0, 2).map((w) => w.charAt(0).toUpperCase()).join("") || "?";
+
+  async function load() {
+    showState(body, "loading", { title: "Gathering members…" });
+    try {
+      await requireUser();
+      // const all = (await groupsApi.members(gid)).filter((m) => !m.status || m.status === "active");
+      const all = (await groupsApi.members(gid)).filter((m) => !m.status || m.status === "active");
+      if (!all.length) { showState(body, "empty", { title: "No members to show" }); return; }
+      const list = el("div", "gx-members");
+      for (const m of all.slice(0, 6)) {
+        const name = m.displayName ?? "Member";
+        const row = el("div", "gx-member");
+        const av = el("span", "gx-avatar", initials(name)); av.setAttribute("aria-hidden", "true");
+        const txt = el("div", "");
+        txt.append(el("div", "gx-member__name", name));
+        if (m.role) txt.append(el("div", "gx-member__role", roleLabel(m.role)));
+        row.append(av, txt);
+        list.append(row);
+      }
+      body.replaceChildren(list);
+    } catch (err) {
+      showState(body, "error", { title: "Couldn't load members", text: describeError(err), action: { label: "Try again", onClick: load } });
+    }
+  }
+  load();
+</script>

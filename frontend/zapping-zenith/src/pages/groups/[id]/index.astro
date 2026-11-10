@@ -1,0 +1,28 @@
+---
+export const prerender = false;
+
+import GroupLayout from "../../../layouts/GroupLayout.astro";
+import GroupRooms from "../../../components/groups/GroupRooms.astro";
+import GroupSchedule from "../../../components/groups/GroupSchedule.astro";
+import GroupMembers from "../../../components/groups/GroupMembers.astro";
+import GroupDiscussion from "../../../components/groups/GroupDiscussion.astro";
+
+const { id } = Astro.params;
+
+if (!id) {
+  return Astro.redirect("/dashboard");
+}
+---
+
+<GroupLayout id={id} active="overview" title="Group">
+  <div class="gx-grid">
+    <div class="gx-col">
+      <GroupRooms id={id} />
+      <GroupSchedule id={id} />
+    </div>
+    <div class="gx-col">
+      <GroupMembers id={id} />
+      <GroupDiscussion />
+    </div>
+  </div>
+</GroupLayout>

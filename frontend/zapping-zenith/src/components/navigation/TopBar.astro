@@ -1,55 +1,26 @@
 ---
-// Sits on the desk above the book: brand left, account actions right.
+import ThemeToggle from "../common/ThemeToggle.astro";
 ---
-
 <div class="topbar">
-  <a class="brand" href="/" aria-label="Rovingr home">rovingr<span>.</span></a>
-
-  <nav class="actions" aria-label="Account">
-    <a class="actions__link" href="/explore">Explore</a>
-    <a class="actions__link" href="/login">Sign in</a>
-    <a class="btn btn--cream btn--sm" href="/register">Join Rovingr</a>
-  </nav>
+  <div class="wrap topbar__inner">
+    <a class="brand" href="/" aria-label="Rovingr home">rovingr<span>.</span></a>
+    <nav class="actions" aria-label="Account">
+      <a class="actions__link" href="/dashboard/discover">Explore</a>
+      <a class="actions__link" href="/login">Sign in</a>
+      <a class="btn btn--primary btn--sm" href="/register">Join Rovingr</a>
+      <ThemeToggle />
+    </nav>
+  </div>
 </div>
 
 <style>
-  .topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    padding-block: 1.25rem 1.1rem;
-  }
-
-  .brand {
-    font-size: 2.2rem;
-    font-weight: 500;
-    line-height: 1;
-    letter-spacing: -0.02em;
-    color: #fff;
-    text-decoration: none;
-  }
-  .brand span { color: #ef6a78; }
-  .brand:hover { color: #fff; }
-
-  .actions {
-    display: flex;
-    align-items: center;
-    gap: clamp(0.9rem, 3vw, 1.75rem);
-  }
-
-  .actions__link {
-    font-size: 0.82rem;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: #c9d4ea;
-    text-decoration: none;
-  }
-  .actions__link:hover { color: #fff; text-decoration: underline; }
-
-  .topbar :global(.btn--cream) { box-shadow: 2px 2px 0 #000; }
-
-  @media (max-width: 32rem) {
-    .actions__link:first-child { display: none; }
-  }
+  .topbar { border-bottom: 1px solid var(--line); background: var(--bar-bg); }
+  .topbar__inner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-block: 0.85rem; }
+  .brand { font-family: var(--font-display); font-size: 1.9rem; line-height: 1; color: var(--accent); text-decoration: none; }
+  .brand span { color: var(--secondary); }
+  .brand:hover { color: var(--accent-d); }
+  .actions { display: flex; align-items: center; gap: clamp(0.75rem, 2.5vw, 1.4rem); color: var(--text-2); }
+  .actions__link { font-size: 0.92rem; font-weight: 500; color: var(--accent); text-decoration: none; }
+  .actions__link:hover { color: var(--accent); text-decoration: underline; }
+  @media (max-width: 32rem) { .actions__link:first-child { display: none; } }
 </style>

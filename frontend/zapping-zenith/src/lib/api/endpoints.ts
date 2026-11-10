@@ -12,10 +12,25 @@ export const endpoints = {
     register: "/auth/register", // UNCONFIRMED
     logout: "/auth/logout", // UNCONFIRMED
   },
+ 
   groups: {
-    list: "/groups", // UNCONFIRMED  (GET, supports ?q= &visibility= &membership=)
-    create: "/groups", // UNCONFIRMED  (POST)
-    detail: (id: string) => `/groups/${encodeURIComponent(id)}`, // UNCONFIRMED
-    join: (id: string) => `/groups/${encodeURIComponent(id)}/join`, // UNCONFIRMED
+    mine: "/groups",
+    public: "/groups/public",
+    list: "/groups",
+    create: "/groups",
+  
+    detail: (id: string) =>
+      `/groups/${encodeURIComponent(id)}`,
+  
+    join: (id: string) =>
+      `/groups/${encodeURIComponent(id)}/join`,
   },
+
+  rooms: {
+      list: (gid: string) => `/groups/${encodeURIComponent(gid)}/rooms`, // CONFIRMED  GET  -> {"rooms": [...]}
+      create: (gid: string) => `/groups/${encodeURIComponent(gid)}/rooms`, // CONFIRMED  POST
+      detail: (gid: string, rid: string) =>
+        `/groups/${encodeURIComponent(gid)}/rooms/${encodeURIComponent(rid)}`, // CONFIRMED  GET (adds canEnter, myRoomRole)
+    },
+
 } as const;

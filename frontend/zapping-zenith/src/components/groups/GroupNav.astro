@@ -14,10 +14,28 @@ const tabs = [
   { key: "settings", label: "Settings", href: `${base}/settings`, requires: "owner,admin" },
 ];
 ---
-<nav class="gnav" aria-label="Group">
+<!-- <nav class="gnav" aria-label="Group">
   {tabs.map((t) => (
     <a class:list={[{ "is-active": active === t.key }]} href={t.href}
        aria-current={active === t.key ? "page" : undefined}
        hidden={!!t.requires} data-requires-role={t.requires}>{t.label}</a>
+  ))}
+</nav> -->
+
+
+<nav class="gx-nav" aria-label="Group">
+  {tabs.map((t) => (
+    <a
+      class:list={[
+        "gx-tab",
+        { "is-active": active === t.key }
+      ]}
+      href={t.href}
+      aria-current={active === t.key ? "page" : undefined}
+      hidden={!!t.requires}
+      data-requires-role={t.requires}
+    >
+      {t.label}
+    </a>
   ))}
 </nav>

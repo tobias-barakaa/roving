@@ -1,7 +1,7 @@
 /* ==========================================================================
    Rovingr — design tokens + base styles
-   E-book editorial language: ivory paper, forest green, muted gold,
-   DM Serif Display headings, DM Sans interface text. Light + dark themes.
+   Light theme: white page, deep teal-blue + green, solid rounded buttons.
+   Dark theme: charcoal + sage green (unchanged).
    Theme is set by <html data-theme="light|dark">; with no attribute it
    follows the system preference.
    ========================================================================== */
@@ -9,43 +9,51 @@
 :root {
   color-scheme: light;
 
-  --bg: #f7f3e8;
-  --surface: #fcfaf4;
-  --surface-2: #efe9d8;
-  --surface-3: #e4dcc4;
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f4f6f8;
+  --surface-3: #e6ebf0;
 
-  --text: #1f2326;
-  --text-2: #43494c;
-  --text-3: #6b7073;
+  --text: #222a30;
+  --text-2: #4b555e;
+  --text-3: #78828b;
+  --heading: #07557f;
 
-  --line: #d6cdb4;
-  --line-strong: #8d8a7a;
+  --line: #dfe3e7;
+  --line-strong: #b4bcc4;
+  --rule-accent: #a9cbdf; /* light-blue underline beneath headings */
+  --bar-bg: linear-gradient(#f2f3f4, #ffffff);
 
-  --accent: #2f4a3c;
-  --accent-d: #1f3329;
-  --on-accent: #f9f6ec;
-  --gold: #a98a3d;
-  --danger: #9b2c2c;
-  --ok: #2f6b45;
+  /* primary = blue, secondary = green */
+  --accent: #07557f;
+  --accent-d: #04405f;
+  --on-accent: #ffffff;
+  --secondary: #3b8a10;
+  --secondary-d: #2d6c0b;
+  --on-secondary: #ffffff;
+
+  --hi: #6fb0d3; /* small highlights: dots, ornaments, ribbons on covers */
+  --danger: #b3261e;
+  --ok: #2d6c0b;
 
   /* book-cover inks (covers are dark in both themes) */
-  --cover-ink: #f4eedb;
-  --cover-ink-2: #cfd8cf;
+  --cover-ink: #f2f7fa;
+  --cover-ink-2: #cfe0ea;
 
-  /* cover tones: forest, moss, charcoal, pine, bronze, slate */
-  --c-crimson: #2f4a3c;
-  --c-green: #4b6454;
-  --c-blue: #2c3135;
-  --c-purple: #1f3a35;
-  --c-teal: #7d6420;
-  --c-navy: #3e4a4f;
+  /* cover tones */
+  --c-crimson: #0a4f78;
+  --c-green: #2f7a12;
+  --c-blue: #27414f;
+  --c-purple: #12384f;
+  --c-teal: #4a7c2a;
+  --c-navy: #0a4a70;
 
   --font-display: "DM Serif Display", "Cormorant Garamond", Georgia, "Times New Roman", serif;
   --font-body: "DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 
   --measure: 70rem;
   --gutter: clamp(1.1rem, 4vw, 2.5rem);
-  --radius: 3px;
+  --radius: 6px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -58,12 +66,18 @@
     --text: #ece7d7;
     --text-2: #bfbbac;
     --text-3: #8d9089;
+    --heading: #ece7d7;
     --line: #353c3f;
     --line-strong: #5d676b;
+    --rule-accent: #3c4a4d;
+    --bar-bg: #1c2123;
     --accent: #86b697;
     --accent-d: #a3cdb2;
     --on-accent: #0f1511;
-    --gold: #c9a95a;
+    --secondary: #6aa9d1;
+    --secondary-d: #8bbfe0;
+    --on-secondary: #0b1620;
+    --hi: #c9a95a;
     --danger: #e07a7a;
     --ok: #86b697;
   }
@@ -78,12 +92,18 @@
   --text: #ece7d7;
   --text-2: #bfbbac;
   --text-3: #8d9089;
+  --heading: #ece7d7;
   --line: #353c3f;
   --line-strong: #5d676b;
+  --rule-accent: #3c4a4d;
+  --bar-bg: #1c2123;
   --accent: #86b697;
   --accent-d: #a3cdb2;
   --on-accent: #0f1511;
-  --gold: #c9a95a;
+  --secondary: #6aa9d1;
+  --secondary-d: #8bbfe0;
+  --on-secondary: #0b1620;
+  --hi: #c9a95a;
   --danger: #e07a7a;
   --ok: #86b697;
 }
@@ -118,7 +138,7 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 img, svg { max-width: 100%; display: block; }
 em, i, cite { font-style: normal; }
 ::selection { background: var(--accent); color: var(--on-accent); }
-:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--hi); outline-offset: 2px; }
 
 .wrap { width: 100%; max-width: var(--measure); margin-inline: auto; padding-inline: var(--gutter); }
 .section { padding-block: clamp(3rem, 7vw, 5rem); }
@@ -129,9 +149,9 @@ em, i, cite { font-style: normal; }
 
 .eyebrow {
   display: inline-block;
-  font-size: 0.74rem;
-  font-weight: 600;
-  letter-spacing: 0.22em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--accent);
 }
@@ -139,39 +159,44 @@ em, i, cite { font-style: normal; }
 .ornament { display: flex; align-items: center; gap: 1rem; color: currentColor; font-size: 1.05rem; }
 .ornament::before, .ornament::after { content: ""; flex: 1; height: 1px; background: currentColor; opacity: 0.45; }
 
-/* ---------- buttons ---------- */
+/* ---------- buttons: solid fill, rounded, bold label ---------- */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
-  padding: 0.65rem 1.4rem;
-  font: inherit; font-size: 0.95rem; font-weight: 500; letter-spacing: 0.03em; line-height: 1.2;
+  min-height: 2.6rem; padding: 0.6rem 1.6rem;
+  font: inherit; font-size: 0.95rem; font-weight: 700; letter-spacing: 0.01em; line-height: 1.2;
   text-decoration: none; cursor: pointer;
   border: 1px solid transparent; border-radius: var(--radius);
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .btn[disabled] { opacity: 0.55; cursor: not-allowed; }
 .btn--primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .btn--primary:hover:not([disabled]) { background: var(--accent-d); border-color: var(--accent-d); color: var(--on-accent); }
-.btn--ghost { background: transparent; color: var(--text); border-color: var(--line-strong); }
-.btn--ghost:hover:not([disabled]) { background: var(--surface-2); color: var(--text); }
-.btn--cream { background: var(--cover-ink); color: #1f3329; border-color: var(--cover-ink); }
-.btn--cream:hover { background: #fff; color: #1f3329; }
-.btn--sm { padding: 0.4rem 0.95rem; font-size: 0.88rem; }
+.btn--secondary { background: var(--secondary); color: var(--on-secondary); border-color: var(--secondary); }
+.btn--secondary:hover:not([disabled]) { background: var(--secondary-d); border-color: var(--secondary-d); color: var(--on-secondary); }
+.btn--ghost {
+  color: var(--text); border-color: var(--line-strong);
+  background: linear-gradient(var(--surface), var(--surface-3));
+}
+.btn--ghost:hover:not([disabled]) { background: var(--surface-3); color: var(--text); }
+.btn--cream { background: var(--cover-ink); color: #0a3550; border-color: var(--cover-ink); }
+.btn--cream:hover { background: #fff; color: #0a3550; }
+.btn--sm { min-height: 2.2rem; padding: 0.4rem 1.1rem; font-size: 0.88rem; }
 
 /* ---------- forms ---------- */
 .field { display: grid; gap: 0.35rem; }
 .field label, .field .label {
-  font-size: 0.74rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-2);
+  font-size: 0.78rem; font-weight: 600; letter-spacing: 0.04em; color: var(--text-2);
 }
 .input, .textarea, .select {
-  width: 100%; padding: 0.6rem 0.75rem; font: inherit; color: var(--text);
+  width: 100%; padding: 0.6rem 0.8rem; font: inherit; color: var(--text);
   background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius);
 }
 .textarea { min-height: 6rem; resize: vertical; }
 .input::placeholder, .textarea::placeholder { color: var(--text-3); }
-.input:focus, .textarea:focus, .select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.input:focus, .textarea:focus, .select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
 .field__error { font-size: 0.88rem; color: var(--danger); }
 .notice {
-  padding: 0.6rem 0.8rem; font-size: 0.95rem; border: 1px solid var(--line); border-left-width: 3px;
+  padding: 0.6rem 0.8rem; font-size: 0.95rem; border: 1px solid var(--line); border-left-width: 4px;
   background: var(--surface-2); border-radius: var(--radius);
 }
 .notice--error { border-left-color: var(--danger); color: var(--danger); }
@@ -181,7 +206,7 @@ em, i, cite { font-style: normal; }
 .auth-card {
   display: grid; gap: 1.25rem; max-width: 28rem; margin: clamp(2.5rem, 7vw, 5rem) auto; padding: clamp(1.6rem, 5vw, 2.5rem);
   text-align: center; background: var(--surface); border: 1px solid var(--line-strong);
-  outline: 1px solid var(--line); outline-offset: 5px; border-radius: var(--radius);
+  border-radius: 8px; box-shadow: 0 8px 28px -18px rgba(0,0,0,.35);
 }
 .auth-card h1 { font-size: 2.3rem; }
 .auth-card form { display: grid; gap: 1.2rem; text-align: left; }
@@ -190,3 +215,8 @@ em, i, cite { font-style: normal; }
   html { scroll-behavior: auto; }
   * { transition: none !important; animation: none !important; }
 }
+
+h1, h2 { color: var(--heading); }
+
+/* The hidden attribute must always win over component display rules. */
+[hidden] { display: none !important; }

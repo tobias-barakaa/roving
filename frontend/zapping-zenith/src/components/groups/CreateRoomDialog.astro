@@ -1,0 +1,101 @@
+---
+interface Props { id: string; }
+const { id } = Astro.props;
+---
+<dialog class="dialog" id="create-room-dialog" data-group-id={id} aria-labelledby="cr-title">
+  <form method="dialog" id="create-room-form" novalidate>
+    <div><span class="eyebrow">New room</span><h2 id="cr-title">Create a study room</h2></div>
+
+    <div class="field">
+      <label for="cr-name">Room name</label>
+      <input class="input" id="cr-name" name="name" type="text" maxlength="100" required autocomplete="off" placeholder="e.g. Quiet reading" />
+      <p class="field__error" data-error-for="name" hidden></p>
+    </div>
+
+    <div class="field">
+      <label for="cr-desc">Description</label>
+      <textarea class="textarea" id="cr-desc" name="description" maxlength="2000" placeholder="What is this room for?"></textarea>
+      <p class="field__error" data-error-for="description" hidden></p>
+    </div>
+
+    <fieldset class="field" style="border:0;padding:0;margin:0">
+      <legend class="label" style="padding:0;margin-bottom:0.35rem">Who can enter</legend>
+      <div class="radios">
+        <label class="radio"><input type="radio" name="access" value="group" checked /><div><strong>Open to the group</strong><span>Every member of this group can enter.</span></div></label>
+        <label class="radio"><input type="radio" name="access" value="restricted" /><div><strong>Restricted</strong><span>Only people a room host has given access to.</span></div></label>
+      </div>
+    </fieldset>
+
+    <div class="field">
+      <label for="cr-cap">Capacity (optional)</label>
+      <input class="input" id="cr-cap" name="capacity" type="number" inputmode="numeric" min="1" max="1000" step="1" placeholder="No limit" />
+      <p class="field__error" data-error-for="capacity" hidden></p>
+    </div>
+
+    <p class="notice notice--error" data-form-error role="alert" hidden></p>
+    <p class="notice notice--ok" data-form-ok role="status" hidden>Room created.</p>
+
+    <div class="dialog__row">
+      <button class="btn btn--ghost" type="button" data-close>Cancel</button>
+      <button class="btn btn--primary" type="submit">Create room</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+  import { roomsApi, type RoomAccess } from "../../lib/api/room";
+  import { describeError } from "../../lib/api/client";
+
+  const dialog = document.getElementById("create-room-dialog") as HTMLDialogElement;
+  const form = document.getElementById("create-room-form") as HTMLFormElement;
+  const groupId = dialog.dataset.groupId!;
+  const errBox = form.querySelector<HTMLElement>("[data-form-error]")!;
+  const okBox = form.querySelector<HTMLElement>("[data-form-ok]")!;
+  const submit = form.querySelector<HTMLButtonElement>("button[type=submit]")!;
+  const fieldErr = (n: string) => form.querySelector<HTMLElement>(`[data-error-for=${n}]`)!;
+  let opener: HTMLElement | null = null;
+
+  const clear = () => { errBox.hidden = okBox.hidden = true; ["name", "description", "capacity"].forEach((n) => (fieldErr(n).hidden = true)); };
+  const fail = (n: string, msg: string) => { const e = fieldErr(n); e.textContent = msg; e.hidden = false; };
+
+  document.addEventListener("click", (e) => {
+    const t = (e.target as HTMLElement).closest<HTMLElement>("[data-open-create-room]");
+    if (!t) return;
+    opener = t; form.reset(); clear(); dialog.showModal();
+    form.querySelector<HTMLInputElement>("[name=name]")!.focus();
+  });
+  form.querySelector("[data-close]")!.addEventListener("click", () => dialog.close());
+  dialog.addEventListener("close", () => opener?.focus());
+  dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault(); clear();
+    const d = new FormData(form);
+    const name = String(d.get("name") ?? "").trim();
+    const description = String(d.get("description") ?? "").trim();
+    const capRaw = String(d.get("capacity") ?? "").trim();
+    let bad = false;
+    if (!name) { fail("name", "Give the room a name."); bad = true; }
+    else if (name.length > 100) { fail("name", "Keep the name to 100 characters."); bad = true; }
+    if (description.length > 2000) { fail("description", "Keep the description to 2000 characters."); bad = true; }
+    let capacity: number | undefined;
+    if (capRaw) {
+      capacity = Number(capRaw);
+      if (!Number.isInteger(capacity) || capacity < 1 || capacity > 1000) { fail("capacity", "Capacity must be a whole number from 1 to 1000."); bad = true; }
+    }
+    if (bad) return;
+
+    submit.disabled = true;
+    try {
+      await roomsApi.create(groupId, { name, description, access: (d.get("access") === "restricted" ? "restricted" : "group") as RoomAccess, ...(capacity ? { capacity } : {}) });
+      okBox.hidden = false;
+      window.dispatchEvent(new CustomEvent("rovingr:rooms-changed", { detail: { groupId } }));
+      setTimeout(() => dialog.close(), 800);
+    } catch (err) {
+      errBox.textContent = describeError(err); // e.g. 409 "a room with that name already exists"
+      errBox.hidden = false;
+    } finally {
+      submit.disabled = false;
+    }
+  });
+</script>

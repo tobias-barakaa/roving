@@ -1,0 +1,78 @@
+---
+import { ready, groupPaths } from "../../lib/groups/routes";
+interface Props { id: string; }
+const { id } = Astro.props;
+---
+<section data-gx-schedule data-group-id={id} aria-labelledby="gx-sched-title">
+  <div class="gx-section__head">
+    <div><h2 id="gx-sched-title">Upcoming study sessions</h2></div>
+    {ready.schedule
+      ? <a class="gx-section__link" href={groupPaths(id).schedule}>View full schedule →</a>
+      : <span class="gx-soon-text">Full schedule coming soon</span>}
+  </div>
+  <div class="gx-body" data-sched-body aria-live="polite"></div>
+</section>
+
+<script>
+  import { describeError } from "../../lib/api/client";
+  import { requireUser } from "../../lib/auth/session";
+  import { loadUpcomingSessions, type GroupSession } from "../../lib/groups/schedule";
+  import { showState } from "../../lib/ui/state";
+
+  const root = document.querySelector<HTMLElement>("[data-gx-schedule]")!;
+  const gid = root.dataset.groupId!;
+  const body = root.querySelector<HTMLElement>("[data-sched-body]")!;
+  const el = (tag: string, cls: string, text?: string) => { const e = document.createElement(tag); e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+
+  function fmt(s: GroupSession) {
+    const tz = s.timezone;
+    const opt = (o: Intl.DateTimeFormatOptions): Intl.DateTimeFormatOptions => (tz ? { ...o, timeZone: tz } : o);
+    const start = new Date(s.startsAt);
+    const end = s.endsAt ? new Date(s.endsAt) : null;
+    const time = (d: Date) => d.toLocaleTimeString(undefined, opt({ hour: "numeric", minute: "2-digit" }));
+    let range = time(start);
+    if (end) {
+      const mins = Math.round((+end - +start) / 60000);
+      range += ` – ${time(end)}` + (mins > 0 ? ` (${mins >= 60 ? `${Math.floor(mins / 60)} h${mins % 60 ? ` ${mins % 60} min` : ""}` : `${mins} min`})` : "");
+    }
+    return {
+      mon: start.toLocaleDateString(undefined, opt({ month: "short" })),
+      day: start.toLocaleDateString(undefined, opt({ day: "numeric" })),
+      dow: start.toLocaleDateString(undefined, opt({ weekday: "short" })),
+      range,
+    };
+  }
+
+  function card(s: GroupSession) {
+    const f = fmt(s);
+    const row = el("article", "gx-session");
+    const leaf = el("div", "gx-leaf"); leaf.setAttribute("aria-hidden", "true");
+    leaf.append(el("span", "gx-leaf__mon", f.mon), el("span", "gx-leaf__day", f.day), el("span", "gx-leaf__dow", f.dow));
+    const b = el("div", "gx-session__body");
+    b.append(el("h3", "gx-session__title", s.title), el("p", "gx-session__time", f.range));
+    const meta = [s.roomName, s.status, s.timezone].filter(Boolean).join(" · ");
+    if (meta) b.append(el("p", "gx-session__meta", meta));
+    row.append(leaf, b);
+    return row;
+  }
+
+  async function load() {
+    showState(body, "loading", { title: "Checking the schedule…" });
+    try {
+      await requireUser();
+      const sessions = await loadUpcomingSessions(gid);
+      if (sessions === null) {
+        showState(body, "empty", { title: "Schedule not connected yet", text: "Sessions for this group will appear here once the scheduling API is wired in. Nothing is being faked." });
+      } else if (!sessions.length) {
+        showState(body, "empty", { title: "No upcoming sessions", text: "When someone schedules a study session for this group, it will show up here." });
+      } else {
+        const list = el("div", "gx-sessions");
+        sessions.forEach((s) => list.append(card(s)));
+        body.replaceChildren(list);
+      }
+    } catch (err) {
+      showState(body, "error", { title: "Couldn't load the schedule", text: describeError(err), action: { label: "Try again", onClick: load } });
+    }
+  }
+  load();
+</script>

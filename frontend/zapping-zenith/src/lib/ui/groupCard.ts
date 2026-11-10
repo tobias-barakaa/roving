@@ -13,7 +13,8 @@ export function groupCard(g: Group, forceMember = false): HTMLElement {
   const membership = forceMember ? "member" : g.membership ?? "none";
 
   const card = t("article", "gcard");
-  const cover = t("div", "gcard__cover");
+  const tone = [...name].reduce((n, c) => n + c.charCodeAt(0), 0) % 5;
+  const cover = t("div", `gcard__cover tone-${tone}`);
   cover.setAttribute("aria-hidden", "true");
   cover.append(t("span", "gcard__mono", name.replace(/^(the|a|an)\s+/i, "").charAt(0).toUpperCase()));
 
@@ -37,12 +38,12 @@ export function groupCard(g: Group, forceMember = false): HTMLElement {
   } else if (membership === "pending") {
     actions.append(t("span", "gcard__badge", "Request pending"));
   } else if (membership === "invited") {
-    const b = t("button", "btn btn--primary btn--sm", "Accept invitation") as HTMLButtonElement;
+    const b = t("button", "btn btn--secondary btn--sm", "Accept invitation") as HTMLButtonElement;
     b.type = "button";
     b.dataset.joinId = g.id;
     actions.append(b);
   } else {
-    const b = t("button", "btn btn--primary btn--sm", "Join group") as HTMLButtonElement;
+    const b = t("button", "btn btn--secondary btn--sm", "Join group") as HTMLButtonElement;
     b.type = "button";
     b.dataset.joinId = g.id;
     actions.append(b);

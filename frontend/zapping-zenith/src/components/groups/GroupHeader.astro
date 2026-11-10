@@ -1,0 +1,110 @@
+---
+import GroupNav from "./GroupNav.astro";
+interface Props { id: string; active?: string; }
+const { id, active = "overview" } = Astro.props;
+---
+<header class="gx-head" data-gx-head data-group-id={id}>
+  <div class="gx-head__main">
+    <div class="gx-head__badges" data-gx-badges></div>
+    <h1 data-gx-name><span class="gx-skel" aria-hidden="true"></span><span class="visually-hidden">Loading group…</span></h1>
+    <p class="gx-head__desc" data-gx-desc hidden></p>
+    <dl class="gx-head__meta" data-gx-meta></dl>
+    <div class="gx-head__actions" data-gx-actions></div>
+  </div>
+  <div data-gx-error></div>
+  <GroupNav id={id} active={active} />
+
+  <dialog class="dialog" data-gx-leave aria-labelledby="gx-leave-title">
+    <form method="dialog" data-gx-leave-form>
+      <div><span class="eyebrow">Leave group</span><h2 id="gx-leave-title">Leave this group?</h2></div>
+      <p>You'll lose access to its rooms and schedule. You can ask to join again later.</p>
+      <p class="notice notice--error" data-gx-leave-error role="alert" hidden></p>
+      <div class="dialog__row">
+        <button class="btn btn--ghost" type="button" data-gx-leave-cancel>Stay</button>
+        <button class="btn btn--primary" type="submit">Leave group</button>
+      </div>
+    </form>
+  </dialog>
+</header>
+
+<script>
+  import { groupsApi } from "../../lib/api/groups";
+  import { describeError } from "../../lib/api/client";
+  import { requireUser } from "../../lib/auth/session";
+  import { getGroup, roleOf, canManageGroup, roleLabel } from "../../lib/groups/context";
+  import { ready, groupPaths } from "../../lib/groups/routes";
+  import { showState } from "../../lib/ui/state";
+
+  const head = document.querySelector<HTMLElement>("[data-gx-head]")!;
+  const id = head.dataset.groupId!;
+  const q = <T extends HTMLElement>(s: string) => head.querySelector<T>(s)!;
+  const badge = (text: string, cls = "") => { const s = document.createElement("span"); s.className = `gx-badge ${cls}`.trim(); s.textContent = text; return s; };
+  const paths = groupPaths(id);
+
+  function button(label: string, cls: string, href?: string, onClick?: () => void) {
+    const el = href ? Object.assign(document.createElement("a"), { href }) : document.createElement("button");
+    el.className = `btn ${cls} btn--sm`;
+    el.textContent = label;
+    if (!href) (el as HTMLButtonElement).type = "button";
+    if (onClick) el.addEventListener("click", onClick);
+    return el;
+  }
+
+  async function load() {
+    try {
+      await requireUser();
+      const g = await getGroup(id);
+      const role = roleOf(g);
+
+      q("[data-gx-name]").textContent = g.name ?? "Untitled group";
+      document.title = `${g.name ?? "Group"} — Rovingr`;
+      const desc = q("[data-gx-desc]");
+      desc.textContent = g.description ?? "";
+      desc.hidden = !g.description;
+
+      const badges = q("[data-gx-badges]"); badges.replaceChildren();
+      if (g.visibility) badges.append(badge(g.visibility === "private" ? "Private group" : "Public group"));
+      if (role) badges.append(badge(roleLabel(role), "gx-badge--role"));
+
+      const meta = q("[data-gx-meta]"); meta.replaceChildren();
+      const add = (k: string, v: string) => { const d = document.createElement("div"); const dt = document.createElement("dt"); dt.textContent = k; const dd = document.createElement("dd"); dd.textContent = v; d.append(dt, dd); meta.append(d); };
+      if (g.createdAt) { const d = new Date(g.createdAt); if (!isNaN(+d)) add("Founded", d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })); }
+      if (typeof g.memberCount === "number") add("Members", String(g.memberCount));
+
+      // Actions. UX only: the backend enforces permissions on every request.
+      const actions = q("[data-gx-actions]"); actions.replaceChildren();
+      if (canManageGroup(role)) {
+        actions.append(ready.members ? button("Invite members", "btn--primary", paths.members) : button("Invite members", "btn--ghost", undefined, () => {}));
+        const last = actions.lastElementChild as HTMLButtonElement;
+        if (!ready.members) { last.disabled = true; last.title = "Members page coming soon"; }
+        if (ready.settings) actions.append(button("Edit group & settings", "btn--ghost", paths.settings));
+        else { const b = button("Edit group & settings", "btn--ghost"); (b as HTMLButtonElement).disabled = true; b.title = "Settings page coming soon"; actions.append(b); }
+      }
+      if (role) actions.append(button("Leave group", "btn--ghost", undefined, () => q<HTMLDialogElement>("[data-gx-leave]").showModal()));
+    } catch (err) {
+      q("[data-gx-name]").textContent = "Group unavailable";
+      showState(q("[data-gx-error]"), "error", { title: "Couldn't open this group", text: err instanceof Error ? describeError(err) : "", action: { label: "Try again", onClick: () => location.reload() } });
+    }
+  }
+
+  const dlg = q<HTMLDialogElement>("[data-gx-leave]");
+  const leaveErr = q("[data-gx-leave-error]");
+  q("[data-gx-leave-cancel]").addEventListener("click", () => dlg.close());
+  q<HTMLFormElement>("[data-gx-leave-form]").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    leaveErr.hidden = true;
+    const btn = (e.target as HTMLFormElement).querySelector<HTMLButtonElement>("button[type=submit]")!;
+    btn.disabled = true;
+    try {
+      await groupsApi.leave(id);
+      window.dispatchEvent(new CustomEvent("rovingr:groups-changed"));
+      window.location.href = "/dashboard";
+    } catch (err) {
+      leaveErr.textContent = describeError(err);
+      leaveErr.hidden = false;
+      btn.disabled = false;
+    }
+  });
+
+  load();
+</script>

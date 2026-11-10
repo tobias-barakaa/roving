@@ -46,9 +46,18 @@ const { mode, title, eyebrow, search = false, id } = Astro.props;
       showState(body, "loading", { title: "Opening the shelves…" });
       try {
         await requireUser();
-        const page = mode === "mine" ? await groupsApi.mine() : await groupsApi.discover(q);
-        // Never show private groups in public discovery, even if the API returned one.
-        const items: Group[] = mode === "discover" ? page.items.filter((g) => g.visibility !== "private") : page.items;
+        // const page = mode === "mine" ? await groupsApi.mine() : await groupsApi.discover(q);
+        // // Never show private groups in public discovery, even if the API returned one.
+        // const items: Group[] = mode === "discover" ? page.items.filter((g) => g.visibility !== "private") : page.items;
+        const response = mode === "mine"
+          ? await groupsApi.mine()
+          : await groupsApi.discover(q);
+        
+        const items: Group[] = mode === "discover"
+          ? response.groups.filter(
+              (g) => g.visibility === "public"
+            )
+          : response.groups;
 
         if (!items.length) {
           if (mode === "mine") {
@@ -70,6 +79,7 @@ const { mode, title, eyebrow, search = false, id } = Astro.props;
         items.forEach((g) => grid.append(groupCard(g, mode === "mine")));
         body.replaceChildren(grid);
       } catch (err) {
+      
         showState(body, "error", { title: "Couldn't load groups", text: describeError(err), action: { label: "Try again", onClick: load } });
       }
     }

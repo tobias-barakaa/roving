@@ -61,30 +61,42 @@ const active = (href: string, exact = false) => (exact ? path === href : path ==
   async function load() {
     try {
       await requireUser();
+
       const page = await groupsApi.mine();
+
       box.replaceChildren();
-      if (!page.items.length) {
+
+      if (!page.groups.length) {
         const p = document.createElement("p");
         p.className = "sidebar__note";
         p.textContent = "You haven't joined any groups yet.";
         box.append(p);
         return;
       }
-      for (const g of page.items) {
+
+      for (const g of page.groups) {
         const a = document.createElement("a");
-        a.className = "sidebar__link" + (current === g.id ? " is-active" : "");
+
+        a.className =
+          "sidebar__link" + (current === g.id ? " is-active" : "");
+
         a.href = `/groups/${encodeURIComponent(g.id)}`;
         a.textContent = g.name ?? "Untitled group";
+
         box.append(a);
       }
     } catch {
       box.replaceChildren();
+
       const p = document.createElement("p");
       p.className = "sidebar__note";
       p.textContent = "Couldn't load your groups.";
+
       box.append(p);
     }
   }
+
   load();
+
   window.addEventListener("rovingr:groups-changed", load);
 </script>
