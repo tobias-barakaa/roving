@@ -3,7 +3,90 @@ import CreateRoomDialog from "./CreateRoomDialog.astro";
 interface Props { id: string; }
 const { id } = Astro.props;
 ---
-<section id="rooms" data-gx-rooms data-group-id={id} aria-labelledby="gx-rooms-title">
+<section id="rooms" class="gx-rooms-section" data-gx-rooms data-group-id={id} aria-labelledby="gx-rooms-title">
+  <div class="gx-section__head">
+    <div><h2 id="gx-rooms-title">Study rooms</h2><p data-rooms-count aria-live="polite"></p></div>
+    <button class="btn btn--primary btn--sm" type="button" data-open-create-room hidden>Create room</button>
+  </div>
+  <div class="gx-body" data-rooms-body aria-live="polite"></div>
+  <CreateRoomDialog id={id} />
+</section>
+
+<script>
+  import { roomsApi, type Room } from "../../lib/api/rooms";
+  import { describeError } from "../../lib/api/client";
+  import { requireUser } from "../../lib/auth/session";
+  import { resolveAccessSafe, showCreateRoom } from "../../lib/groups/permissions";
+  import { roomCard, type Access } from "../../lib/ui/roomCard";
+  import { roomsEmpty } from "../../lib/ui/roomsEmpty";
+  import { showState } from "../../lib/ui/state";
+
+  const root = document.querySelector<HTMLElement>("[data-gx-rooms]")!;
+  const gid = root.dataset.groupId!;
+  const body = root.querySelector<HTMLElement>("[data-rooms-body]")!;
+  const count = root.querySelector<HTMLElement>("[data-rooms-count]")!;
+  const createBtn = root.querySelector<HTMLButtonElement>("[data-open-create-room]")!;
+  const openCreate = () => createBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+  async function load() {
+    showState(body, "loading", { title: "Opening the rooms…" });
+    count.textContent = "";
+    createBtn.hidden = true;
+    try {
+      const user = await requireUser();
+      // Never throws: an unreadable role becomes "unknown", which still shows Create Room.
+      const access = await resolveAccessSafe(gid, user);
+      const canCreate = showCreateRoom(access); // UX only; the backend enforces it
+
+      const rooms: Room[] = await roomsApi.list(gid);
+
+      if (!rooms.length) {
+        // The empty state carries the big call to action, so the small header button stays out of the way.
+        body.replaceChildren(roomsEmpty({ canCreate, onCreate: openCreate }));
+        return;
+      }
+
+      count.textContent = `${rooms.length} ${rooms.length === 1 ? "room" : "rooms"}`;
+      // Once rooms exist, entering one is the main action; creating another is secondary.
+      createBtn.className = "btn btn--ghost btn--sm";
+      createBtn.hidden = !canCreate;
+
+      const list = document.createElement("div");
+      list.className = "gx-rooms";
+      body.replaceChildren(list);
+
+      for (const room of rooms) {
+        const mine = room.createdBy === user.id;
+        // Open rooms: group members may enter (the backend still checks on entry).
+        // Restricted rooms: the list doesn't say, so ask the single-room endpoint for canEnter.
+        const entry: Access = room.access === "restricted" ? "checking" : "yes";
+        const card = roomCard(gid, room, entry, mine);
+        list.append(card);
+        if (room.access === "restricted") {
+          roomsApi.get(gid, room.id).then(
+            (d) => card.replaceWith(roomCard(gid, d, d.canEnter ? "yes" : "no", mine)),
+            () => card.replaceWith(roomCard(gid, room, "no", mine)),
+          );
+        }
+      }
+    } catch (err) {
+      showState(body, "error", { title: "Couldn't load rooms", text: describeError(err), action: { label: "Try again", onClick: load } });
+    }
+  }
+
+  window.addEventListener("rovingr:rooms-changed", (e) => {
+    if ((e as CustomEvent).detail?.groupId === gid) load();
+  });
+  load();
+</script>
+
+
+<!-- ---
+import CreateRoomDialog from "./CreateRoomDialog.astro";
+interface Props { id: string; }
+const { id } = Astro.props;
+---
+<section id="rooms" class="gx-rooms-section" data-gx-rooms data-group-id={id} aria-labelledby="gx-rooms-title">
   <div class="gx-section__head">
     <div><h2 id="gx-rooms-title">Study rooms</h2><p data-rooms-count aria-live="polite"></p></div>
     <button class="btn btn--primary btn--sm" type="button" data-open-create-room hidden>Create room</button>
@@ -25,27 +108,135 @@ const { id } = Astro.props;
   const body = root.querySelector<HTMLElement>("[data-rooms-body]")!;
   const count = root.querySelector<HTMLElement>("[data-rooms-count]")!;
   const createBtn = root.querySelector<HTMLButtonElement>("[data-open-create-room]")!;
+  const openCreate = () => createBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+  let loadVersion = 0;
+  // async function load() {
+  //   showState(body, "loading", { title: "Opening the rooms…" });
+  //   count.textContent = "";
+  //   try {
+  //     const user = await requireUser();
+  //     // const group = await getGroup(gid).catch(() => null);
+  //     const group = await getGroup(gid);
+  //     createBtn.hidden = !canCreateRooms(roleOf(group));
+  //     // createBtn.hidden = !canCreateRooms(roleOf(group)); // UX only; the backend enforces it
+
+  //     const rooms: Room[] = await roomsApi.list(gid);
+  //     if (!rooms.length) {
+  //       showState(body, "empty", {
+  //         title: "No study rooms yet",
+  //         text: canCreateRooms(roleOf(group)) ? "Create the first room so members have somewhere to meet." : "A moderator or admin can create the first room for this group.",
+  //         action: canCreateRooms(roleOf(group)) ? { label: "Create a room", onClick: () => createBtn.click() } : undefined,
+  //       });
+  //       return;
+  //     }
+  //     count.textContent = `${rooms.length} ${rooms.length === 1 ? "room" : "rooms"}`;
+
+  //     const list = document.createElement("div");
+  //     list.className = "gx-rooms";
+  //     body.replaceChildren(list);
+
+  //     for (const room of rooms) {
+  //       const mine = room.createdBy === user.id;
+  //       // Open rooms: group members may enter (the backend still checks on entry).
+  //       // Restricted rooms: the list doesn't say, so ask the single-room endpoint for canEnter.
+  //       const access: Access = room.access === "restricted" ? "checking" : "yes";
+  //       const card = roomCard(gid, room, access, mine);
+  //       list.append(card);
+  //       if (room.access === "restricted") {
+  //         roomsApi.get(gid, room.id).then(
+  //           (d) => card.replaceWith(roomCard(gid, d, d.canEnter ? "yes" : "no", mine)),
+  //           () => card.replaceWith(roomCard(gid, room, "no", mine)),
+  //         );
+  //       }
+  //     }
+  //   } catch (err) {
+  //     showState(body, "error", { title: "Couldn't load rooms", text: describeError(err), action: { label: "Try again", onClick: load } });
+  //   }
+  // }
+  //
+
+
+  function renderEmpty(canCreate: boolean) {
+    const box = document.createElement("div");
+    box.className = "gx-empty";
+    box.setAttribute("role", "status");
+
+    const glyph = document.createElement("span");
+    glyph.className = "gx-empty__glyph";
+    glyph.setAttribute("aria-hidden", "true");
+    glyph.textContent = "❧";
+    box.append(glyph);
+
+    const title = document.createElement("h3");
+    title.textContent = canCreate ? "Create your first study room" : "No study rooms yet";
+    box.append(title);
+
+    const p = document.createElement("p");
+    p.textContent = "Rooms are where your group meets to read, discuss and study together. Open rooms welcome every member; restricted rooms are invite-only.";
+    box.append(p);
+
+    if (canCreate) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "btn btn--primary";
+      b.setAttribute("data-open-create-room", "");
+      b.textContent = "Create your first room";
+      box.append(b);
+    } else {
+      const note = document.createElement("p");
+      note.className = "gx-empty__note";
+      note.textContent = "A moderator or admin will set up the first room for this group.";
+      box.append(note);
+    }
+
+    body.replaceChildren(box);
+  }
 
   async function load() {
+    const version = ++loadVersion;
+
     showState(body, "loading", { title: "Opening the rooms…" });
     count.textContent = "";
+    createBtn.hidden = true;
+
+
     try {
       const user = await requireUser();
-      // const group = await getGroup(gid).catch(() => null);
       const group = await getGroup(gid);
-      createBtn.hidden = !canCreateRooms(roleOf(group));
-      // createBtn.hidden = !canCreateRooms(roleOf(group)); // UX only; the backend enforces it
+
+
+          // Never throws: an unreadable role becomes "unknown", which still shows Create Room.
+          const access = await resolveAccessSafe(gid, user);
+          const canCreate = showCreateRoom(access); // UX only; the backend enforces it
+    
+          const rooms: Room[] = await roomsApi.list(gid);
+
+      if (version !== loadVersion) return;
+
+      const canCreate = canCreateRooms(roleOf(group));
+      createBtn.hidden = !canCreate;
+
+      const params = new URLSearchParams(location.search);
+      if (params.has("firstRoom") && canCreate) {
+        params.delete("firstRoom");
+        const qs = params.toString();
+        history.replaceState(null, "", `${location.pathname}${qs ? `?${qs}` : ""}`);
+        createBtn.click();
+      }
 
       const rooms: Room[] = await roomsApi.list(gid);
+
+      if (version !== loadVersion) return;
+
       if (!rooms.length) {
-        showState(body, "empty", {
-          title: "No study rooms yet",
-          text: canCreateRooms(roleOf(group)) ? "Create the first room so members have somewhere to meet." : "A moderator or admin can create the first room for this group.",
-          action: canCreateRooms(roleOf(group)) ? { label: "Create a room", onClick: () => createBtn.click() } : undefined,
-        });
+        renderEmpty(canCreate);
         return;
       }
-      count.textContent = `${rooms.length} ${rooms.length === 1 ? "room" : "rooms"}`;
+
+      count.textContent = `${rooms.length} ${
+        rooms.length === 1 ? "room" : "rooms"
+      }`;
 
       const list = document.createElement("div");
       list.className = "gx-rooms";
@@ -53,20 +244,43 @@ const { id } = Astro.props;
 
       for (const room of rooms) {
         const mine = room.createdBy === user.id;
-        // Open rooms: group members may enter (the backend still checks on entry).
-        // Restricted rooms: the list doesn't say, so ask the single-room endpoint for canEnter.
-        const access: Access = room.access === "restricted" ? "checking" : "yes";
+
+        const access: Access =
+          room.access === "restricted" ? "checking" : "yes";
+
         const card = roomCard(gid, room, access, mine);
         list.append(card);
+
         if (room.access === "restricted") {
           roomsApi.get(gid, room.id).then(
-            (d) => card.replaceWith(roomCard(gid, d, d.canEnter ? "yes" : "no", mine)),
-            () => card.replaceWith(roomCard(gid, room, "no", mine)),
+            (d) => {
+              if (version !== loadVersion || !card.isConnected) return;
+
+              card.replaceWith(
+                roomCard(gid, d, d.canEnter ? "yes" : "no", mine)
+              );
+            },
+            () => {
+              if (version !== loadVersion || !card.isConnected) return;
+
+              card.replaceWith(roomCard(gid, room, "no", mine));
+            }
           );
         }
       }
     } catch (err) {
-      showState(body, "error", { title: "Couldn't load rooms", text: describeError(err), action: { label: "Try again", onClick: load } });
+      if (version !== loadVersion) return;
+
+      createBtn.hidden = true;
+
+      showState(body, "error", {
+        title: "Couldn't load rooms",
+        text: describeError(err),
+        action: {
+          label: "Try again",
+          onClick: load,
+        },
+      });
     }
   }
 
@@ -74,4 +288,4 @@ const { id } = Astro.props;
     if ((e as CustomEvent).detail?.groupId === gid) load();
   });
   load();
-</script>
+</script> -->

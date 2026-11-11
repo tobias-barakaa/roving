@@ -25,7 +25,7 @@ const { id } = Astro.props;
   const el = (tag: string, cls: string, text?: string) => { const e = document.createElement(tag); e.className = cls; if (text !== undefined) e.textContent = text; return e; };
 
   function fmt(s: GroupSession) {
-    const tz = s.timezone;
+    const tz = validTimezone(s.timezone);
     const opt = (o: Intl.DateTimeFormatOptions): Intl.DateTimeFormatOptions => (tz ? { ...o, timeZone: tz } : o);
     const start = new Date(s.startsAt);
     const end = s.endsAt ? new Date(s.endsAt) : null;
@@ -75,4 +75,16 @@ const { id } = Astro.props;
     }
   }
   load();
+
+
+  function validTimezone(tz?: string): string | undefined {
+    if (!tz) return undefined;
+  
+    try {
+      new Intl.DateTimeFormat("en", { timeZone: tz });
+      return tz;
+    } catch {
+      return undefined;
+    }
+  }
 </script>

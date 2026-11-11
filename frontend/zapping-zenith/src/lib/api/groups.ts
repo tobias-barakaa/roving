@@ -31,7 +31,9 @@ export interface Group {
   createdAt?: string;
   updatedAt?: string;
   createdBy?: string;
+  [key: string]: unknown;
 }
+
 
 
 
@@ -112,6 +114,51 @@ export const groupsApi = {
     },
 
 };
+
+
+
+/** Accepts a bare array, {items}, or {groups}; throws if the body is none of those. */
+function toGroups(raw: unknown): { items: Group[]; nextCursor: null } {
+  const r = raw as { items?: unknown; groups?: unknown } | unknown[] | null;
+  const arr = Array.isArray(r) ? r : Array.isArray(r?.items) ? r.items : Array.isArray(r?.groups) ? r.groups : null;
+  if (!arr) throw new Error("Unexpected response from the groups API");
+  return { items: arr as Group[], nextCursor: null };
+}
+
+function toMembers(raw: unknown): GroupMember[] {
+  const r = raw as { members?: unknown; items?: unknown } | unknown[] | null;
+  const arr = Array.isArray(r) ? r : Array.isArray(r?.members) ? r.members : Array.isArray(r?.items) ? r.items : null;
+  if (!arr) throw new Error("Unexpected response from the members API");
+  return (arr as Record<string, unknown>[]).map((m) => ({
+    userId: (m.userId ?? m.id) as string | undefined,
+    displayName: m.displayName as string | undefined,
+    role: m.role as string | undefined,
+    status: m.status as string | undefined,
+    joinedAt: m.joinedAt as string | undefined,
+  }));
+}
+
+/** Accepts the group directly, or wrapped as {group: {...}, ...siblings}. */
+function toGroup(raw: unknown): Group {
+  const r = raw as Record<string, unknown> | null;
+  if (r && typeof r.group === "object" && r.group && !Array.isArray(r.group)) {
+    return { ...r, ...(r.group as Record<string, unknown>) } as Group;
+  }
+  return raw as Group;
+}
+
+// export const groupsApi = {
+//   /** Public groups for discovery. The `q` param is UNCONFIRMED; private groups are also filtered in the UI. */
+//   discover: async (q = "") =>
+//     toGroups(await api.get<unknown>(`${endpoints.groups.publicList}${q ? `?q=${encodeURIComponent(q)}` : ""}`)),
+//   mine: async () => toGroups(await api.get<unknown>(endpoints.groups.mine)),
+//   get: async (id: string) => toGroup(await api.get<unknown>(endpoints.groups.detail(id))),
+//   members: async (id: string) => toMembers(await api.get<unknown>(endpoints.groups.members(id))),
+//   create: async (input: CreateGroupInput) => toGroup(await api.post<unknown>(endpoints.groups.create, input)),
+//   join: (id: string) => api.post<unknown>(endpoints.groups.join(id)),
+//   leave: (id: string) => api.post<void>(endpoints.groups.leave(id)),
+// };
+
 
 
 // import { api, type Page } from "./client";

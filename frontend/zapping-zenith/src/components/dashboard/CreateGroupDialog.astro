@@ -24,6 +24,179 @@
       </div>
     </fieldset>
 
+    <div class="first-room">
+      <label class="check" for="cg-first-room">
+        <input type="checkbox" id="cg-first-room" name="firstRoom" aria-controls="cg-first-room-fields" />
+        <span><strong>Also create a first study room</strong><small>Optional. A room is where your group studies together. You can add rooms later.</small></span>
+      </label>
+      <div class="first-room__fields" id="cg-first-room-fields" data-first-room-fields hidden>
+        <div class="field">
+          <label for="cg-room-name">Room name</label>
+          <input class="input" id="cg-room-name" name="roomName" type="text" maxlength="100" autocomplete="off" placeholder="Main study room" />
+          <p class="field__error" data-error-for="roomName" hidden></p>
+        </div>
+        <div class="field">
+          <label for="cg-room-access">Who can enter</label>
+          <select class="select" id="cg-room-access" name="roomAccess">
+            <option value="group">Open to the group</option>
+            <option value="restricted">Restricted (only people a host lets in)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <p class="notice notice--error" data-form-error role="alert" hidden></p>
+    <div class="notice notice--ok" data-form-ok role="status" hidden>
+      <span data-ok-text>Group created.</span>
+      <a class="btn btn--primary btn--sm dialog__link" data-ok-link href="#" hidden>Open group</a>
+    </div>
+
+    <div class="dialog__row">
+      <button class="btn btn--ghost" type="button" data-close-dialog>Cancel</button>
+      <button class="btn btn--primary" type="submit">Create group</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+  import { groupsApi } from "../../lib/api/groups";
+  import { roomsApi } from "../../lib/api/rooms";
+  import { describeError } from "../../lib/api/client";
+
+  const dialog = document.getElementById("create-group-dialog") as HTMLDialogElement;
+  const form = document.getElementById("create-group-form") as HTMLFormElement;
+  const q = <T extends HTMLElement>(s: string) => form.querySelector<T>(s)!;
+  const errBox = q("[data-form-error]");
+  const okBox = q("[data-form-ok]");
+  const okText = q("[data-ok-text]");
+  const okLink = q<HTMLAnchorElement>("[data-ok-link]");
+  const nameErr = q("[data-error-for=name]");
+  const roomNameErr = q("[data-error-for=roomName]");
+  const submit = q<HTMLButtonElement>("button[type=submit]");
+  const cancel = q<HTMLButtonElement>("[data-close-dialog]");
+  const firstRoom = q<HTMLInputElement>("#cg-first-room");
+  const roomFields = q("[data-first-room-fields]");
+  const roomName = q<HTMLInputElement>("#cg-room-name");
+  let opener: HTMLElement | null = null;
+
+  const clear = () => {
+    errBox.hidden = okBox.hidden = okLink.hidden = nameErr.hidden = roomNameErr.hidden = true;
+    roomFields.hidden = true;
+    submit.hidden = false;
+    cancel.textContent = "Cancel";
+  };
+
+  firstRoom.addEventListener("change", () => {
+    roomFields.hidden = !firstRoom.checked;
+    if (firstRoom.checked) {
+      if (!roomName.value.trim()) roomName.value = "Main study room";
+      roomName.focus();
+      roomName.select();
+    }
+  });
+
+  document.addEventListener("click", (e) => {
+    const t = (e.target as HTMLElement).closest<HTMLElement>("[data-open-create-group]");
+    if (!t) return;
+    opener = t;
+    form.reset(); clear();
+    dialog.showModal();
+    q<HTMLInputElement>("[name=name]").focus();
+  });
+  cancel.addEventListener("click", () => dialog.close());
+  dialog.addEventListener("close", () => { if (opener?.isConnected) opener.focus(); });
+  dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    errBox.hidden = okBox.hidden = okLink.hidden = nameErr.hidden = roomNameErr.hidden = true;
+    const d = new FormData(form);
+    const name = String(d.get("name") ?? "").trim();
+    const wantsRoom = firstRoom.checked;
+    const firstName = String(d.get("roomName") ?? "").trim();
+
+    let bad = false;
+    if (!name) { nameErr.textContent = "Give your group a name."; nameErr.hidden = false; bad = true; }
+    if (wantsRoom && (!firstName || firstName.length > 100)) {
+      roomNameErr.textContent = !firstName ? "Name the room, or untick the option." : "Keep the room name to 100 characters.";
+      roomNameErr.hidden = false; bad = true;
+    }
+    if (bad) return;
+
+    submit.disabled = true;
+    try {
+      // Groups and rooms stay separate backend concepts: one call each, no new endpoint.
+      const group = await groupsApi.create({
+        name,
+        description: String(d.get("description") ?? "").trim(),
+        visibility: d.get("visibility") === "private" ? "private" : "public",
+      });
+      window.dispatchEvent(new CustomEvent("rovingr:groups-changed"));
+      const groupHref = group?.id ? `/groups/${encodeURIComponent(group.id)}` : null;
+
+      let roomProblem: string | null = null;
+      if (wantsRoom) {
+        if (!group?.id) roomProblem = "the server didn't return the new group's id";
+        else {
+          try {
+            await roomsApi.create(group.id, {
+              name: firstName,
+              description: "",
+              access: d.get("roomAccess") === "restricted" ? "restricted" : "group",
+            });
+          } catch (err) {
+            roomProblem = describeError(err);
+          }
+        }
+      }
+
+      okBox.hidden = false;
+      if (roomProblem) {
+        // The group exists: say so, explain the room, and let them continue from the group page.
+        okText.textContent = `Group created, but the first room couldn't be added (${roomProblem}). You can create it from the group page.`;
+        if (groupHref) { okLink.href = groupHref; okLink.hidden = false; okLink.focus(); }
+        submit.hidden = true;
+        cancel.textContent = "Close";
+        return;
+      }
+      okText.textContent = groupHref ? (wantsRoom ? "Group and first room created. Opening your group…" : "Group created. Opening it…") : "Group created.";
+      if (groupHref) { submit.hidden = true; setTimeout(() => window.location.assign(groupHref), 500); }
+      else setTimeout(() => dialog.close(), 900);
+    } catch (err) {
+      errBox.textContent = describeError(err);
+      errBox.hidden = false;
+    } finally {
+      submit.disabled = false;
+    }
+  });
+</script>
+
+<!-- <dialog class="dialog" id="create-group-dialog" aria-labelledby="cg-title">
+  <form method="dialog" id="create-group-form" novalidate>
+    <div>
+      <span class="eyebrow">New group</span>
+      <h2 id="cg-title">Create a study group</h2>
+    </div>
+
+    <div class="field">
+      <label for="cg-name">Group name</label>
+      <input class="input" id="cg-name" name="name" type="text" required autocomplete="off" placeholder="e.g. Evening Mathematics" />
+      <p class="field__error" data-error-for="name" hidden></p>
+    </div>
+
+    <div class="field">
+      <label for="cg-desc">Description</label>
+      <textarea class="textarea" id="cg-desc" name="description" placeholder="What will this group read or study together?"></textarea>
+    </div>
+
+    <fieldset class="field" style="border:0;padding:0;margin:0">
+      <legend class="label" style="padding:0;margin-bottom:0.35rem">Visibility</legend>
+      <div class="radios">
+        <label class="radio"><input type="radio" name="visibility" value="public" checked /><div><strong>Public</strong><span>Anyone can find this group in Discover.</span></div></label>
+        <label class="radio"><input type="radio" name="visibility" value="private" /><div><strong>Private</strong><span>Hidden from Discover. Only members can see it.</span></div></label>
+      </div>
+    </fieldset>
+
     <p class="notice notice--error" data-form-error role="alert" hidden></p>
     <p class="notice notice--ok" data-form-ok role="status" hidden>Group created.</p>
 
@@ -82,4 +255,181 @@
       submit.disabled = false;
     }
   });
-</script>
+</script> -->
+
+
+<!-- 
+
+
+<dialog class="dialog" id="create-group-dialog" aria-labelledby="cg-title">
+  <form method="dialog" id="create-group-form" novalidate>
+    <div>
+      <span class="eyebrow">New group</span>
+      <h2 id="cg-title">Create a study group</h2>
+    </div>
+
+    <div class="field">
+      <label for="cg-name">Group name</label>
+      <input class="input" id="cg-name" name="name" type="text" required autocomplete="off" placeholder="e.g. Evening Mathematics" />
+      <p class="field__error" data-error-for="name" hidden></p>
+    </div>
+
+    <div class="field">
+      <label for="cg-desc">Description</label>
+      <textarea class="textarea" id="cg-desc" name="description" placeholder="What will this group read or study together?"></textarea>
+    </div>
+
+    <fieldset class="field" style="border:0;padding:0;margin:0">
+      <legend class="label" style="padding:0;margin-bottom:0.35rem">Visibility</legend>
+      <div class="radios">
+        <label class="radio"><input type="radio" name="visibility" value="public" checked /><div><strong>Public</strong><span>Anyone can find this group in Discover.</span></div></label>
+        <label class="radio"><input type="radio" name="visibility" value="private" /><div><strong>Private</strong><span>Hidden from Discover. Only members can see it.</span></div></label>
+      </div>
+    </fieldset>
+
+    <div class="first-room">
+      <label class="check" for="cg-first-room">
+        <input type="checkbox" id="cg-first-room" name="firstRoom" aria-controls="cg-first-room-fields" />
+        <span><strong>Also create a first study room</strong><small>Optional. A room is where your group studies together. You can add rooms later.</small></span>
+      </label>
+      <div class="first-room__fields" id="cg-first-room-fields" data-first-room-fields hidden>
+        <div class="field">
+          <label for="cg-room-name">Room name</label>
+          <input class="input" id="cg-room-name" name="roomName" type="text" maxlength="100" autocomplete="off" placeholder="Main study room" />
+          <p class="field__error" data-error-for="roomName" hidden></p>
+        </div>
+        <div class="field">
+          <label for="cg-room-access">Who can enter</label>
+          <select class="select" id="cg-room-access" name="roomAccess">
+            <option value="group">Open to the group</option>
+            <option value="restricted">Restricted (only people a host lets in)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <p class="notice notice--error" data-form-error role="alert" hidden></p>
+    <div class="notice notice--ok" data-form-ok role="status" hidden>
+      <span data-ok-text>Group created.</span>
+      <a class="btn btn--primary btn--sm dialog__link" data-ok-link href="#" hidden>Open group</a>
+    </div>
+
+    <div class="dialog__row">
+      <button class="btn btn--ghost" type="button" data-close-dialog>Cancel</button>
+      <button class="btn btn--primary" type="submit">Create group</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+  import { groupsApi } from "../../lib/api/groups";
+  import { roomsApi } from "../../lib/api/room";
+  import { describeError } from "../../lib/api/client";
+
+  const dialog = document.getElementById("create-group-dialog") as HTMLDialogElement;
+  const form = document.getElementById("create-group-form") as HTMLFormElement;
+  const q = <T extends HTMLElement>(s: string) => form.querySelector<T>(s)!;
+  const errBox = q("[data-form-error]");
+  const okBox = q("[data-form-ok]");
+  const okText = q("[data-ok-text]");
+  const okLink = q<HTMLAnchorElement>("[data-ok-link]");
+  const nameErr = q("[data-error-for=name]");
+  const roomNameErr = q("[data-error-for=roomName]");
+  const submit = q<HTMLButtonElement>("button[type=submit]");
+  const cancel = q<HTMLButtonElement>("[data-close-dialog]");
+  const firstRoom = q<HTMLInputElement>("#cg-first-room");
+  const roomFields = q("[data-first-room-fields]");
+  const roomName = q<HTMLInputElement>("#cg-room-name");
+  let opener: HTMLElement | null = null;
+
+  const clear = () => {
+    errBox.hidden = okBox.hidden = okLink.hidden = nameErr.hidden = roomNameErr.hidden = true;
+    roomFields.hidden = true;
+    submit.hidden = false;
+    cancel.textContent = "Cancel";
+  };
+
+  firstRoom.addEventListener("change", () => {
+    roomFields.hidden = !firstRoom.checked;
+    if (firstRoom.checked) {
+      if (!roomName.value.trim()) roomName.value = "Main study room";
+      roomName.focus();
+      roomName.select();
+    }
+  });
+
+  document.addEventListener("click", (e) => {
+    const t = (e.target as HTMLElement).closest<HTMLElement>("[data-open-create-group]");
+    if (!t) return;
+    opener = t;
+    form.reset(); clear();
+    dialog.showModal();
+    q<HTMLInputElement>("[name=name]").focus();
+  });
+  cancel.addEventListener("click", () => dialog.close());
+  dialog.addEventListener("close", () => { if (opener?.isConnected) opener.focus(); });
+  dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    errBox.hidden = okBox.hidden = okLink.hidden = nameErr.hidden = roomNameErr.hidden = true;
+    const d = new FormData(form);
+    const name = String(d.get("name") ?? "").trim();
+    const wantsRoom = firstRoom.checked;
+    const firstName = String(d.get("roomName") ?? "").trim();
+
+    let bad = false;
+    if (!name) { nameErr.textContent = "Give your group a name."; nameErr.hidden = false; bad = true; }
+    if (wantsRoom && (!firstName || firstName.length > 100)) {
+      roomNameErr.textContent = !firstName ? "Name the room, or untick the option." : "Keep the room name to 100 characters.";
+      roomNameErr.hidden = false; bad = true;
+    }
+    if (bad) return;
+
+    submit.disabled = true;
+    try {
+      // Groups and rooms stay separate backend concepts: one call each, no new endpoint.
+      const group = await groupsApi.create({
+        name,
+        description: String(d.get("description") ?? "").trim(),
+        visibility: d.get("visibility") === "private" ? "private" : "public",
+      });
+      window.dispatchEvent(new CustomEvent("rovingr:groups-changed"));
+      const groupHref = group?.id ? `/groups/${encodeURIComponent(group.id)}` : null;
+
+      let roomProblem: string | null = null;
+      if (wantsRoom) {
+        if (!group?.id) roomProblem = "the server didn't return the new group's id";
+        else {
+          try {
+            await roomsApi.create(group.id, {
+              name: firstName,
+              description: "",
+              access: d.get("roomAccess") === "restricted" ? "restricted" : "group",
+            });
+          } catch (err) {
+            roomProblem = describeError(err);
+          }
+        }
+      }
+
+      okBox.hidden = false;
+      if (roomProblem) {
+        // The group exists: say so, explain the room, and let them continue from the group page.
+        okText.textContent = `Group created, but the first room couldn't be added (${roomProblem}). You can create it from the group page.`;
+        if (groupHref) { okLink.href = groupHref; okLink.hidden = false; okLink.focus(); }
+        submit.hidden = true;
+        cancel.textContent = "Close";
+        return;
+      }
+      okText.textContent = groupHref ? (wantsRoom ? "Group and first room created. Opening your group…" : "Group created. Opening it…") : "Group created.";
+      if (groupHref) { submit.hidden = true; setTimeout(() => window.location.assign(groupHref), 500); }
+      else setTimeout(() => dialog.close(), 900);
+    } catch (err) {
+      errBox.textContent = describeError(err);
+      errBox.hidden = false;
+    } finally {
+      submit.disabled = false;
+    }
+  });
+</script> -->
