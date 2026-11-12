@@ -133,3 +133,12 @@ body.app:not(.is-ready) .app__main { visibility: hidden; }
   .appbar__user { display: none; }
 }
 @media (max-width: 30rem) { .cards { grid-template-columns: 1fr; } }
+
+/* optional first room inside the Create Group dialog */
+.check { display: flex; gap: 0.7rem; align-items: flex-start; cursor: pointer; }
+.check input { margin-top: 0.3rem; width: 1.05rem; height: 1.05rem; accent-color: var(--accent); }
+.check strong { display: block; font-weight: 700; }
+.check small { display: block; font-size: 0.86rem; color: var(--text-2); }
+.first-room { padding: 0.9rem 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); }
+.first-room__fields { display: grid; gap: 0.9rem; margin-top: 0.9rem; padding-top: 0.9rem; border-top: 1px dashed var(--line-strong); }
+.dialog__link { display: inline-flex; margin-left: 0.4rem; }

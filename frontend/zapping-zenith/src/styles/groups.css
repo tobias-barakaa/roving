@@ -76,3 +76,23 @@ a.gx-tab:hover { color: var(--accent); }
 .gx-soon { padding: 1.4rem; text-align: center; border: 1px dashed var(--line-strong); border-radius: 8px; background: var(--surface-2); }
 .gx-soon h3 { font-size: 1.25rem; color: var(--heading); }
 .gx-soon p { margin-top: 0.3rem; font-size: 0.93rem; color: var(--text-2); }
+
+
+/* ---------- first-room empty state ---------- */
+.gx-empty { display: grid; justify-items: center; gap: 0.9rem; padding: clamp(1.8rem, 4vw, 2.8rem) clamp(1.2rem, 4vw, 2.4rem); text-align: center; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 0 0 4px var(--surface), 0 0 0 5px var(--line); margin: 5px; }
+.gx-empty__seal { display: grid; place-items: center; width: 3.4rem; height: 3.4rem; font-size: 1.5rem; color: var(--hi); border: 1px solid var(--hi); border-radius: 50%; outline: 1px solid var(--line); outline-offset: 4px; }
+.gx-empty__title { font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2rem); }
+.gx-empty__lead { max-width: 38rem; color: var(--text-2); }
+.gx-empty__kinds { display: grid; gap: 0.8rem; width: 100%; max-width: 38rem; margin-top: 0.4rem; text-align: left; }
+@media (min-width: 40rem) { .gx-empty__kinds { grid-template-columns: 1fr 1fr; } }
+.gx-empty__kind { display: grid; gap: 0.15rem; padding: 0.8rem 1rem; background: var(--surface-2); border: 1px solid var(--line); border-left: 4px solid var(--secondary); border-radius: var(--radius); }
+.gx-empty__kind:last-child { border-left-color: var(--line-strong); }
+.gx-empty__kind strong { font-weight: 700; color: var(--heading); }
+.gx-empty__kind span { font-size: 0.9rem; color: var(--text-2); }
+.gx-empty__cta { margin-top: 0.6rem; min-height: 3rem; padding-inline: 2rem; font-size: 1.02rem; }
+.gx-empty__hint { max-width: 32rem; font-size: 0.88rem; color: var(--text-3); }
+
+/* ---------- rooms you can enter lead with a solid Enter button ---------- */
+.gx-room.is-enterable { border-color: var(--rule-accent); }
+.gx-room__side .btn { min-width: 8.5rem; }
+.gx-created { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem; }

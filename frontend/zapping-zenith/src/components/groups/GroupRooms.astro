@@ -13,7 +13,7 @@ const { id } = Astro.props;
 </section>
 
 <script>
-  import { roomsApi, type Room } from "../../lib/api/rooms";
+  import { roomsApi, type Room } from "../../lib/api/room";
   import { describeError } from "../../lib/api/client";
   import { requireUser } from "../../lib/auth/session";
   import { resolveAccessSafe, showCreateRoom } from "../../lib/groups/permissions";

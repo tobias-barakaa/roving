@@ -37,9 +37,9 @@ export interface Group {
 
 
 
-export interface GroupListResponse {
-  groups: Group[];
-}
+// export interface GroupListResponse {
+//   groups: Group[];
+// }
 
 export interface CreateGroupInput {
   name: string;
@@ -49,10 +49,17 @@ export interface CreateGroupInput {
 export interface GroupMember {
   userId: string;
   displayName: string;
-  email: string;
+  email?: string;
   role: GroupRole;
   status: string;
   joinedAt?: string | null;
+}
+
+
+
+export interface GroupListResponse {
+  items: Group[];
+  nextCursor: string | null;
 }
 // export interface CreateGroupInput {
 //   name: string;
@@ -83,7 +90,6 @@ export const groupsApi = {
     
   },
 
-  
   // GET /groups
   mine: () =>
     api.get<GroupListResponse>(endpoints.groups.mine),
@@ -127,14 +133,24 @@ function toGroups(raw: unknown): { items: Group[]; nextCursor: null } {
 
 function toMembers(raw: unknown): GroupMember[] {
   const r = raw as { members?: unknown; items?: unknown } | unknown[] | null;
-  const arr = Array.isArray(r) ? r : Array.isArray(r?.members) ? r.members : Array.isArray(r?.items) ? r.items : null;
+
+  const arr = Array.isArray(r)
+    ? r
+    : Array.isArray(r?.members)
+      ? r.members
+      : Array.isArray(r?.items)
+        ? r.items
+        : null;
+
   if (!arr) throw new Error("Unexpected response from the members API");
+
   return (arr as Record<string, unknown>[]).map((m) => ({
-    userId: (m.userId ?? m.id) as string | undefined,
-    displayName: m.displayName as string | undefined,
-    role: m.role as string | undefined,
-    status: m.status as string | undefined,
-    joinedAt: m.joinedAt as string | undefined,
+    userId: (m.userId ?? m.id) as string,
+    displayName: m.displayName as string,
+    email: m.email as string,
+    role: m.role as GroupRole,
+    status: m.status as string,
+    joinedAt: (m.joinedAt as string | null | undefined) ?? null,
   }));
 }
 
