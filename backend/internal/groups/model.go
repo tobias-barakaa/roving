@@ -3,6 +3,7 @@ package groups
 
 import (
 	"errors"
+	"strconv"
 	"time"
 )
 
@@ -54,6 +55,10 @@ func (r Role) String() string {
 	default:
 		return "none"
 	}
+}
+
+func (r Role) MarshalJSON() ([]byte, error) {
+	return []byte(strconv.Quote(r.String())), nil
 }
 
 // ParseRole maps a DB string to a Role. Anything unrecognized (which the DB
