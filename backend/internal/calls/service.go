@@ -57,9 +57,27 @@ func (s *Service) Join(ctx context.Context, actorID, groupID, roomID string, req
 	}
 	defer tx.Rollback(ctx)
 
-	if _, err := s.requireRoom(ctx, tx, groupID, actorID, roomID, true); err != nil {
-		return nil, err
+	room, err := s.repo.GetRoom(ctx, tx, roomID)
+	if err != nil {
+    return nil, err
 	}
+	
+	if room.GroupID != groupID {
+    return nil, ErrNotFound
+	}
+	
+	if room.Archived {
+    return nil, ErrInvalid
+	}
+	
+	if video && actorID != room.CreatedBy {
+    return nil, ErrForbidden
+	}
+	
+	if _, err := s.requireRoom(ctx, tx, groupID, actorID, roomID, true); err != nil {
+    return nil, err
+	}
+	
 	if !s.rt.IsPresent(roomTopic(roomID), actorID) {
 		return nil, ErrNotConnected
 	}
@@ -245,6 +263,17 @@ func (s *Service) UpdateMedia(ctx context.Context, actorID, groupID, roomID stri
 	}
 	if call.GroupID != groupID {
 		return nil, ErrNotFound
+	}
+
+	if req.VideoOn != nil && *req.VideoOn {
+		room, err := s.repo.GetRoom(ctx, s.db, roomID)
+		if err != nil {
+			return nil, err
+		}
+	
+		if actorID != room.CreatedBy {
+			return nil, ErrForbidden
+		}
 	}
 	p, err := s.repo.SetMedia(ctx, s.db, call.ID, actorID, req.AudioOn, req.VideoOn)
 	if err != nil {

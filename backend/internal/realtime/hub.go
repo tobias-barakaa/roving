@@ -197,6 +197,26 @@ func (h *Hub) SendToUser(userID string, env Envelope, exceptConnID string) int {
 	return n
 }
 
+
+// SendToConnection sends an envelope to one specific WebSocket connection.
+func (h *Hub) SendToConnection(connectionID string, env Envelope) bool {
+	b, err := json.Marshal(env)
+	if err != nil {
+		return false
+	}
+
+	h.mu.RLock()
+	c := h.byID[connectionID]
+	h.mu.RUnlock()
+
+	if c == nil {
+		return false
+	}
+
+	return c.enqueue(b)
+}
+
+
 // DisconnectUser closes every connection of the user. Call it when a user logs
 // out, is removed, or is banned, so their sockets don't linger.
 func (h *Hub) DisconnectUser(userID string, code websocket.StatusCode, reason string) {

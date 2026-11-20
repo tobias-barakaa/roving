@@ -66,7 +66,7 @@ const active = (href: string, exact = false) => (exact ? path === href : path ==
 
       box.replaceChildren();
 
-      if (!page.groups.length) {
+      if (!page.items.length) {
         const p = document.createElement("p");
         p.className = "sidebar__note";
         p.textContent = "You haven't joined any groups yet.";
@@ -74,7 +74,7 @@ const active = (href: string, exact = false) => (exact ? path === href : path ==
         return;
       }
 
-      for (const g of page.groups) {
+      for (const g of page.items) {
         const a = document.createElement("a");
 
         a.className =
@@ -85,13 +85,15 @@ const active = (href: string, exact = false) => (exact ? path === href : path ==
 
         box.append(a);
       }
-    } catch {
+    } catch (error) {
+      console.error("Failed to load sidebar groups:", error);
+    
       box.replaceChildren();
-
+    
       const p = document.createElement("p");
       p.className = "sidebar__note";
-      p.textContent = "Couldn't load your groups.";
-
+      p.textContent = "Couldn't load your groups123.";
+    
       box.append(p);
     }
   }

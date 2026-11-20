@@ -250,9 +250,11 @@ func (r *Repository) MemberRole(ctx context.Context, ex pgxExecutor, groupID, us
 func (r *Repository) GetRoom(ctx context.Context, ex pgxExecutor, id string) (*Room, error) {
 	var rm Room
 	err := ex.QueryRow(ctx,
-		`SELECT id::text, group_id::text, access, archived_at IS NOT NULL
-		   FROM study_rooms WHERE id = $1::uuid`, id,
-	).Scan(&rm.ID, &rm.GroupID, &rm.Access, &rm.Archived)
+		`SELECT id::text, group_id::text, created_by::text,
+       access, archived_at IS NOT NULL
+		FROM study_rooms
+		WHERE id = $1::uuid`, id,
+	).Scan(&rm.ID, &rm.GroupID, &rm.CreatedBy, &rm.Access, &rm.Archived)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}

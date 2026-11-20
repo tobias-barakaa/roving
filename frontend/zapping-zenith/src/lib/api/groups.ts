@@ -91,8 +91,10 @@ export const groupsApi = {
   },
 
   // GET /groups
-  mine: () =>
-    api.get<GroupListResponse>(endpoints.groups.mine),
+  mine: async () => {
+    const raw = await api.get<unknown>(endpoints.groups.mine);
+    return toGroups(raw);
+  },
 
   // GET /groups/:id
   get: (id: string) =>

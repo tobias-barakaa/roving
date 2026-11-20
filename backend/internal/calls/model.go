@@ -78,11 +78,19 @@ type JoinResult struct {
 }
 
 // Room is the slice of study_rooms the access gate needs.
+// type Room struct {
+// 	ID       string
+// 	GroupID  string
+// 	Access   string // "group" | "restricted"
+// 	Archived bool
+// }
+
 type Room struct {
-	ID       string
-	GroupID  string
-	Access   string // "group" | "restricted"
-	Archived bool
+    ID        string
+    GroupID   string
+    CreatedBy string
+    Access    string
+    Archived  bool
 }
 
 // leftRef describes a call a user was moved out of (joined elsewhere).

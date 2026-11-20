@@ -1,0 +1,72 @@
+---
+/**
+ * Stage: my own self-view tile plus empty slots. Markup only; the behaviour is in
+ * src/lib/rooms/roomPage.ts, which drives it from lib/media/localMedia.ts.
+ *
+ * The self-view <video> is always muted: it only ever shows my own picture, and I
+ * never hear my own microphone.
+ *
+ * EXTENSION POINT (WebRTC, later stage): remote participants' video tiles are appended
+ * to [data-rm-remote-grid]. Remove the "waiting" tile and the empty slots as people arrive.
+ */
+---
+<section class="rm-stage" aria-labelledby="rm-stage-title">
+  <h2 id="rm-stage-title" class="visually-hidden">Your camera and microphone</h2>
+
+  <div class="rm-tile rm-tile--self" data-rm-self>
+    <video class="rm-video" data-rm-video autoplay playsinline muted></video>
+
+    <div class="rm-cover" data-rm-cover>
+      <div class="rm-avatar" data-rm-initials aria-hidden="true">?</div>
+      <p class="rm-cover__title">Your camera is off</p>
+      <p class="rm-cover__text">This is a private preview of you. Sharing video with others isn't built yet.</p>
+      <div class="rm-cover__actions">
+        <button class="btn btn--primary rm-big" type="button" data-rm-cam-start>
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="13" height="12" rx="2"/><path d="m15 10 6-3v10l-6-3z"/></svg>
+          <span data-rm-cam-start-label>Turn on camera</span>
+        </button>
+        <button class="btn btn--secondary rm-big" type="button" data-rm-mic-start data-rm-mic-in-cover>
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+          <span data-rm-mic-start-label>Turn on microphone</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="rm-tile__label"><span>You</span><span class="rm-tile__muted" data-rm-tile-muted hidden>Muted</span></div>
+  </div>
+
+  <div class="rm-errors" data-rm-cam-error aria-live="polite"></div>
+  <div class="rm-errors" data-rm-mic-error aria-live="polite"></div>
+
+  <div class="rm-panel rm-devices" data-rm-devices>
+    <div class="rm-devices__mic" data-rm-mic-row hidden>
+      <button class="btn btn--secondary btn--sm" type="button" data-rm-mic-start data-rm-mic-in-row>
+        <span data-rm-mic-start-label>Turn on microphone</span>
+      </button>
+    </div>
+    <div class="rm-meterbox" data-rm-meterbox hidden>
+      <span class="rm-meterbox__label" id="rm-meter-label">Microphone level</span>
+      <div class="rm-meter" role="presentation" aria-hidden="true"><span data-rm-meter-bar></span></div>
+      <span class="rm-meterbox__state" data-rm-mic-state>Off</span>
+    </div>
+    <div class="field" data-rm-cam-pick hidden>
+      <label for="rm-cam-select">Camera</label>
+      <select class="select" id="rm-cam-select" data-rm-cam-select></select>
+    </div>
+    <div class="field" data-rm-mic-pick hidden>
+      <label for="rm-mic-select">Microphone</label>
+      <select class="select" id="rm-mic-select" data-rm-mic-select></select>
+    </div>
+    <p class="rm-devices__hint" data-rm-devices-hint>Device choices appear here once you allow your camera or microphone.</p>
+  </div>
+
+  <!-- Slots: so the room never looks empty when I'm alone. -->
+  <div class="rm-slots" data-rm-remote-grid>
+    <div class="rm-tile rm-tile--waiting" data-rm-waiting>
+      <p class="rm-waiting__title">Waiting for others to join</p>
+      <p class="rm-waiting__text">People who enter this room will appear here.</p>
+    </div>
+    <div class="rm-tile rm-tile--slot" aria-hidden="true"></div>
+    <div class="rm-tile rm-tile--slot" aria-hidden="true"></div>
+  </div>
+</section>

@@ -1,0 +1,55 @@
+---
+/**
+ * Side panel with two tabs: People and Chat. Collapsible (button in the header, and the
+ * "People & chat" button in the control bar). Tab behaviour: src/lib/rooms/roomPage.ts.
+ *
+ * People: shows only me for now, plus the status of the realtime (WebSocket) connection
+ *   (RealtimeClient status, wired in roomPage.ts).
+ *   EXTENSION POINT (presence): render other people into [data-rm-people-list] from the
+ *   room.state message of the realtime hub, after sending room.join (see startPresence in roomPage.ts).
+ * Chat: a disabled composer. Nothing is sent or stored.
+ *   EXTENSION POINT (persistent chat): load history into [data-rm-chat-log] from the chat API,
+ *   enable the form, and append messages as they arrive.
+ */
+---
+<aside class="rm-side" id="rm-side" aria-label="People and chat" data-rm-side>
+  <div class="rm-side__head">
+    <div class="rm-tabs" role="tablist" aria-label="Side panel sections">
+      <button class="rm-tab" role="tab" type="button" id="rm-tab-people" aria-controls="rm-pane-people" aria-selected="true" data-rm-tab="people">People</button>
+      <button class="rm-tab" role="tab" type="button" id="rm-tab-chat" aria-controls="rm-pane-chat" aria-selected="false" tabindex="-1" data-rm-tab="chat">Chat</button>
+    </div>
+    <button class="btn btn--ghost btn--sm rm-side__close" type="button" data-rm-side-close aria-label="Hide People &amp; chat panel">Hide</button>
+  </div>
+
+  <div class="rm-pane" role="tabpanel" id="rm-pane-people" aria-labelledby="rm-tab-people" data-rm-pane="people" tabindex="0">
+    <div class="rm-conn">
+      <span class="rm-conn__label">Realtime connection</span>
+      <span class="gx-badge gx-badge--muted" data-rm-conn>Not connected yet</span>
+    </div>
+    <p class="notice notice--error rm-note" data-rm-conn-note role="alert" hidden>Your session has ended. <a href="/login">Sign in again</a> to reconnect.</p>
+    <ul class="rm-people" data-rm-people-list>
+      <li class="rm-person">
+        <span class="gx-avatar" data-rm-me-initials aria-hidden="true">?</span>
+        <span class="rm-person__body">
+          <span class="rm-person__name"><span data-rm-me-name>You</span> <span class="rm-person__you">(you)</span></span>
+          <span class="rm-person__status" data-rm-me-status>Camera off · Microphone off</span>
+        </span>
+      </li>
+    </ul>
+    <p class="notice rm-note">Others will appear here once presence is built.</p>
+  </div>
+
+  <div class="rm-pane" role="tabpanel" id="rm-pane-chat" aria-labelledby="rm-tab-chat" data-rm-pane="chat" tabindex="0" hidden>
+    <div class="rm-chat__log" data-rm-chat-log>
+      <p class="notice rm-note">Chat arrives in the next stage. Nothing you type here is sent or saved.</p>
+    </div>
+    <form class="rm-chat__form" data-rm-chat-form>
+      <fieldset disabled class="rm-chat__fieldset">
+        <legend class="visually-hidden">Chat composer (not available yet)</legend>
+        <label class="visually-hidden" for="rm-chat-input">Message (chat isn't available yet)</label>
+        <textarea class="textarea rm-chat__input" id="rm-chat-input" rows="2" placeholder="Chat isn't available yet"></textarea>
+        <button class="btn btn--primary btn--sm" type="submit">Send</button>
+      </fieldset>
+    </form>
+  </div>
+</aside>
