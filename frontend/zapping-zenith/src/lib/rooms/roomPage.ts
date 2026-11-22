@@ -22,6 +22,9 @@ import { blockedCopy, viewForError, viewForRoom } from "./roomView";
 import { RealtimeClient } from "../realtime/client";
 import type { RealtimeStatus } from "../realtime/types";
 import type { User } from "../api/auth";
+import { initStream } from "../stream/streamPage";
+import { initChat } from "../stream/chat";
+
 
 /* ------------------------------------------------------------ small DOM helpers */
 
@@ -159,7 +162,10 @@ export function initRoomPage() {
 
     blockedBox.hidden = true;
     enterBox.hidden = false;
-    if (!entered) { entered = true; enterRoom(user); }
+    if (!entered) {
+      entered = true;
+      enterRoom(user, room.myRoomRole === "host" ? "host" : "viewer");
+    }
   }
 
   function fillHeader(room: Room, groupName: string) {
@@ -183,7 +189,8 @@ export function initRoomPage() {
 
   /* ----------------------------------------------------------- the room itself */
 
-  function enterRoom(user: User) {
+  // function enterRoom(user: User) {
+    function enterRoom(user: User, myRoomRole: "host" | "viewer") {
     const media = new LocalMedia();
     const myName = displayNameOf(user);
 
@@ -233,19 +240,59 @@ export function initRoomPage() {
       connNote.hidden = s !== "unauthorized";
       if (ui.announce) announce(`Realtime connection: ${ui.label.replace("…", "")}`);
     };
+    // const realtime = new RealtimeClient();
+    // const offStatus = realtime.onStatus(setConnectionStatus);
+    // realtime.start();
+    // const stopPresence = startPresence({ groupId, roomId, user, realtime });
+    // let realtimeStopped = false;
+    // const stopRealtime = () => {
+    //   if (realtimeStopped) return;
+    //   realtimeStopped = true;
+    //   stopPresence();
+    //   offStatus(); // unsubscribe first so leaving doesn't announce "Disconnected"
+    //   realtime.stop();
+    // };
+    // const realtime = new RealtimeClient();
+    // const offStatus = realtime.onStatus(setConnectionStatus);
+    // realtime.start();
+    // const stopPresence = startPresence({ groupId, roomId, user, realtime });
+    // let realtimeStopped = false;
+    // const stopRealtime = () => {
+    //   if (realtimeStopped) return;
+    //   realtimeStopped = true;
+    //   stopPresence();
+    //   offStatus();
+    //   realtime.stop();
+    // };
+
     const realtime = new RealtimeClient();
     const offStatus = realtime.onStatus(setConnectionStatus);
     realtime.start();
-    const stopPresence = startPresence({ groupId, roomId, user, realtime });
+    
+    // Stream: join the room's WebRTC stream.
+    const remoteVideoEl = root.querySelector<HTMLVideoElement>("[data-rm-remote-video]");
+    const streamHandle = remoteVideoEl
+      ? initStream(realtime, media, roomId, groupId, myRoomRole, remoteVideoEl)
+      : null;
+    
+    // Chat: send and receive messages through the same realtime socket.
+    const chatLog = root.querySelector<HTMLElement>("[data-rm-chat-log]");
+    const chatForm = root.querySelector<HTMLFormElement>("[data-rm-chat-form]");
+    const chatInput = root.querySelector<HTMLTextAreaElement>("[data-rm-chat-input]");
+    const chat = (chatLog && chatForm && chatInput)
+      ? initChat(realtime, roomId, user.id, chatLog, chatForm, chatInput)
+      : null;
+    
     let realtimeStopped = false;
     const stopRealtime = () => {
       if (realtimeStopped) return;
       realtimeStopped = true;
-      stopPresence();
-      offStatus(); // unsubscribe first so leaving doesn't announce "Disconnected"
+      chat?.destroy();
+      streamHandle?.leave();
+      offStatus();
       realtime.stop();
     };
-
+      
     /* ---- microphone level meter ---- */
     let meter: LevelMeter | null = null;
     const stopMeter = () => { meter?.stop(); meter = null; meterBar.style.transform = "scaleX(0)"; };
@@ -269,6 +316,8 @@ export function initRoomPage() {
       box.append(n);
       announce(f.title);
     }
+
+      
 
     function startLabel(k: KindState, idle: string, noun: string) {
       if (k.status === "starting") return { text: `Starting ${noun}…`, disabled: true };
@@ -420,7 +469,7 @@ export function initRoomPage() {
     /* ---- chat composer is inert for now ---- */
     // EXTENSION POINT: persistent chat. Load history into [data-rm-chat-log], enable the
     // <fieldset> in the form and send through the chat API. Until then nothing is sent.
-    $("[data-rm-chat-form]").addEventListener("submit", (e) => e.preventDefault());
+    // $("[data-rm-chat-form]").addEventListener("submit", (e) => e.preventDefault());
 
     // EXTENSION POINT: WebRTC signalling (later stage).
     // The call will be peer-to-peer. Reuse `media.getStream()` / `media.getTrack("camera" | "microphone")`
@@ -442,3 +491,4 @@ export function initRoomPage() {
 
   load();
 }
+

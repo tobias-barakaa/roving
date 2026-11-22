@@ -6,8 +6,9 @@
  * The self-view <video> is always muted: it only ever shows my own picture, and I
  * never hear my own microphone.
  *
- * EXTENSION POINT (WebRTC, later stage): remote participants' video tiles are appended
- * to [data-rm-remote-grid]. Remove the "waiting" tile and the empty slots as people arrive.
+ * The remote tile [data-rm-remote-wrap] starts hidden. streamPage.ts unhides it
+ * when the host's stream arrives, and re-hides it on leave(). The inner <video>
+ * is NOT muted: viewers should hear the host.
  */
 ---
 <section class="rm-stage" aria-labelledby="rm-stage-title">
@@ -62,6 +63,14 @@
 
   <!-- Slots: so the room never looks empty when I'm alone. -->
   <div class="rm-slots" data-rm-remote-grid>
+    <!-- Remote (host) video tile. Starts hidden; streamPage.ts unhides it when the
+         host's stream arrives, and re-hides it on leave(). No `muted` here —
+         viewers must hear the host. -->
+    <div class="rm-tile rm-tile--remote" data-rm-remote-wrap hidden>
+      <video class="rm-video" data-rm-remote-video autoplay playsinline></video>
+      <div class="rm-tile__label"><span>Host</span></div>
+    </div>
+
     <div class="rm-tile rm-tile--waiting" data-rm-waiting>
       <p class="rm-waiting__title">Waiting for others to join</p>
       <p class="rm-waiting__text">People who enter this room will appear here.</p>

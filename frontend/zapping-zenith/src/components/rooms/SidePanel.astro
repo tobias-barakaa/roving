@@ -40,14 +40,23 @@
   </div>
 
   <div class="rm-pane" role="tabpanel" id="rm-pane-chat" aria-labelledby="rm-tab-chat" data-rm-pane="chat" tabindex="0" hidden>
-    <div class="rm-chat__log" data-rm-chat-log>
-      <p class="notice rm-note">Chat arrives in the next stage. Nothing you type here is sent or saved.</p>
+    <div class="rm-chat__log" data-rm-chat-log aria-live="polite">
+      <p class="notice rm-note">Say hello to the room.</p>
     </div>
     <form class="rm-chat__form" data-rm-chat-form>
-      <fieldset disabled class="rm-chat__fieldset">
-        <legend class="visually-hidden">Chat composer (not available yet)</legend>
-        <label class="visually-hidden" for="rm-chat-input">Message (chat isn't available yet)</label>
-        <textarea class="textarea rm-chat__input" id="rm-chat-input" rows="2" placeholder="Chat isn't available yet"></textarea>
+      <fieldset class="rm-chat__fieldset">
+        <legend class="visually-hidden">Send a message to the room</legend>
+        <label class="visually-hidden" for="rm-chat-input">Message</label>
+        <textarea
+          class="textarea rm-chat__input"
+          id="rm-chat-input"
+          data-rm-chat-input
+          name="message"
+          rows="2"
+          maxlength="2000"
+          placeholder="Message the room…"
+          required
+        ></textarea>
         <button class="btn btn--primary btn--sm" type="submit">Send</button>
       </fieldset>
     </form>
