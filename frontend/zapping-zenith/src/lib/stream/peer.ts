@@ -1,95 +1,144 @@
-// frontend/src/lib/stream/peer.ts
+// frontend: src/lib/stream/peer.ts
 import type { RealtimeClient } from "../realtime/client";
 import type { LocalMedia } from "../media/localMedia";
+import { iceServers } from "./iceServers";
 
 export interface PeerOptions {
   remoteConnID: string;
   media: LocalMedia;
+  /** true on the host's side: sends video + audio. Viewers only ever send audio. */
   isPublisher: boolean;
   realtime: RealtimeClient;
   roomId: string;
-  onRemoteStream: (stream: MediaStream) => void;
+  /** Fires whenever the remote side adds a track. The stream is the same object each time. */
+  onRemoteStream: (stream: MediaStream, track: MediaStreamTrack) => void;
   onStateChange: (state: RTCPeerConnectionState) => void;
 }
 
+/**
+ * One RTCPeerConnection to one other tab.
+ *
+ * Why transceivers: the old version added the camera/mic tracks at the moment
+ * the offer was made. If the host hadn't switched the camera on yet, the offer
+ * carried no video and turning it on later changed nothing. Here the offer
+ * always contains a video and an audio slot, and the tracks are plugged into
+ * those slots with replaceTrack() whenever they appear, change or stop. No
+ * renegotiation is needed for any of that.
+ *
+ * Only the host makes offers. The viewer answers and only ever sends audio.
+ */
 export class Peer {
   readonly pc: RTCPeerConnection;
-  private readonly opts: PeerOptions;
+  private readonly o: PeerOptions;
+  private readonly remote = new MediaStream();
   private pendingIce: RTCIceCandidateInit[] = [];
-  /** senders keyed by kind so replaceTrack() on device change finds them. */
-  private readonly senders = new Map<"audio" | "video", RTCRtpSender>();
+  private senders: { audio?: RTCRtpSender; video?: RTCRtpSender } = {};
+  private chain: Promise<unknown> = Promise.resolve();
+  private closed = false;
 
-  constructor(opts: PeerOptions) {
-    this.opts = opts;
-    this.pc = new RTCPeerConnection({
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-    });
+  constructor(o: PeerOptions) {
+    this.o = o;
+    this.pc = new RTCPeerConnection({ iceServers: iceServers() });
 
     this.pc.onicecandidate = (e) => {
-      if (e.candidate) this.sendSignal("ice", e.candidate.toJSON());
+      if (e.candidate) this.signal("ice", e.candidate.toJSON());
     };
     this.pc.ontrack = (e) => {
-      const [stream] = e.streams;
-      if (stream) this.opts.onRemoteStream(stream);
+      this.remote.addTrack(e.track);
+      this.o.onRemoteStream(this.remote, e.track);
     };
     this.pc.onconnectionstatechange = () => {
-      this.opts.onStateChange(this.pc.connectionState);
+      this.o.onStateChange(this.pc.connectionState);
+      // The host retries a failed path by restarting ICE (viewers just answer).
+      if (this.pc.connectionState === "failed" && this.o.isPublisher && !this.closed) {
+        void this.queue(() => this.makeOffer(true));
+      }
     };
   }
 
-  async createOffer() {
-    this.addLocalTracks();
-    const offer = await this.pc.createOffer();
-    await this.pc.setLocalDescription(offer);
-    this.sendSignal("offer", { type: offer.type, sdp: offer.sdp });
+  /** Host only: open the connection to a viewer. */
+  start(): Promise<void> {
+    return this.queue(async () => {
+      const stream = this.o.media.getStream();
+      const opts = (direction: RTCRtpTransceiverDirection): RTCRtpTransceiverInit => ({ direction, streams: [stream] });
+      this.senders.video = this.pc.addTransceiver("video", opts("sendonly")).sender;
+      this.senders.audio = this.pc.addTransceiver("audio", opts("sendrecv")).sender;
+      await this.syncTracks();
+      await this.makeOffer(false);
+    });
   }
 
-  async handleOffer(sdp: RTCSessionDescriptionInit) {
-    this.addLocalTracks();
-    await this.pc.setRemoteDescription(sdp);
-    await this.flushIce();
-    const answer = await this.pc.createAnswer();
-    await this.pc.setLocalDescription(answer);
-    this.sendSignal("answer", { type: answer.type, sdp: answer.sdp });
-  }
-
-  async handleAnswer(sdp: RTCSessionDescriptionInit) {
-    await this.pc.setRemoteDescription(sdp);
-    await this.flushIce();
-  }
-
-  async handleIce(candidate: RTCIceCandidateInit) {
-    if (this.pc.remoteDescription) {
-      await this.pc.addIceCandidate(candidate).catch(() => {});
-    } else {
-      this.pendingIce.push(candidate);
-    }
+  /** Feed one signalling message in. Messages are processed strictly in order. */
+  handleSignal(kind: "offer" | "answer" | "ice", data: unknown): Promise<void> {
+    return this.queue(async () => {
+      if (kind === "offer") return this.onOffer(data as RTCSessionDescriptionInit);
+      if (kind === "answer") {
+        await this.pc.setRemoteDescription(data as RTCSessionDescriptionInit);
+        return this.flushIce();
+      }
+      const cand = data as RTCIceCandidateInit;
+      if (this.pc.remoteDescription) await this.pc.addIceCandidate(cand).catch(() => {});
+      else this.pendingIce.push(cand);
+    });
   }
 
   /**
-   * Call this when the user switches camera or microphone mid-call.
-   * It swaps the outgoing track without renegotiating the whole connection.
+   * Plug the current camera/microphone tracks into the senders.
+   * Call it whenever LocalMedia changes (camera on/off, device switch, mic on).
+   * Viewers have no video sender, so they cannot publish video even by mistake.
    */
-  async replaceLocalTrack(kind: "audio" | "video", track: MediaStreamTrack | null) {
-    const sender = this.senders.get(kind);
-    if (!sender) return;
-    await sender.replaceTrack(track);
+  async syncTracks(): Promise<void> {
+    if (this.closed) return;
+    const pairs: ["audio" | "video", "camera" | "microphone"][] = [["audio", "microphone"], ["video", "camera"]];
+    for (const [kind, source] of pairs) {
+      const sender = this.senders[kind];
+      if (!sender) continue;
+      if (kind === "video" && !this.o.isPublisher) continue;
+      const track = this.o.media.getTrack(source) ?? null;
+      if (sender.track !== track) await sender.replaceTrack(track).catch(() => {});
+    }
   }
 
   close() {
-    this.pc.getSenders().forEach((s) => s.track?.stop());
+    this.closed = true;
+    // Do NOT stop the senders' tracks: they are the person's own camera/mic,
+    // shared by every peer connection. LocalMedia decides when they stop.
+    this.pc.ontrack = this.pc.onicecandidate = this.pc.onconnectionstatechange = null;
     this.pc.close();
   }
 
-  private addLocalTracks() {
-    const stream = this.opts.media.getStream();
-    if (!stream) return;
-    for (const track of stream.getTracks()) {
-      // Publisher rule: viewers only add audio.
-      if (!this.opts.isPublisher && track.kind !== "audio") continue;
-      const sender = this.pc.addTrack(track, stream);
-      this.senders.set(track.kind as "audio" | "video", sender);
+  // ---- internals ----
+
+  private queue<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.chain.then(fn, fn);
+    this.chain = run.catch((e) => console.warn("[stream] peer step failed", e));
+    return run;
+  }
+
+  private async onOffer(offer: RTCSessionDescriptionInit) {
+    await this.pc.setRemoteDescription(offer);
+    // The transceivers now exist (created by the host's offer). Viewers send
+    // audio and only receive video.
+    for (const t of this.pc.getTransceivers()) {
+      const kind = t.receiver.track.kind as "audio" | "video";
+      if (kind === "audio") {
+        t.direction = "sendrecv";
+        this.senders.audio = t.sender;
+      } else {
+        t.direction = "recvonly";
+      }
     }
+    await this.syncTracks();
+    await this.flushIce();
+    const answer = await this.pc.createAnswer();
+    await this.pc.setLocalDescription(answer);
+    this.signal("answer", { type: answer.type, sdp: answer.sdp });
+  }
+
+  private async makeOffer(iceRestart: boolean) {
+    const offer = await this.pc.createOffer(iceRestart ? { iceRestart: true } : undefined);
+    await this.pc.setLocalDescription(offer);
+    this.signal("offer", { type: offer.type, sdp: offer.sdp });
   }
 
   private async flushIce() {
@@ -98,12 +147,8 @@ export class Peer {
     for (const c of queued) await this.pc.addIceCandidate(c).catch(() => {});
   }
 
-  private sendSignal(kind: "offer" | "answer" | "ice", data: unknown) {
-    this.opts.realtime.send("stream.signal", {
-      roomId: this.opts.roomId,
-      to: this.opts.remoteConnID,
-      kind,
-      data,
-    });
+  private signal(kind: "offer" | "answer" | "ice", data: unknown) {
+    if (this.closed) return;
+    this.o.realtime.send("stream.signal", { roomId: this.o.roomId, to: this.o.remoteConnID, kind, data });
   }
 }

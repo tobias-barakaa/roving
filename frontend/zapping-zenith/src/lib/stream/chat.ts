@@ -1,4 +1,4 @@
-// frontend/src/lib/stream/chat.ts
+// frontend: src/lib/stream/chat.ts
 import type { RealtimeClient } from "../realtime/client";
 
 export interface ChatMessage {
@@ -9,64 +9,72 @@ export interface ChatMessage {
 }
 
 export interface ChatHandle {
-  send(text: string): void;
   destroy(): void;
 }
 
+/**
+ * Live room chat over the realtime hub. Messages are delivered to whoever is in
+ * the room right now; they are not stored yet (persistent chat is its own stage).
+ * `labelOf` turns a user id into the name shown above a message.
+ */
 export function initChat(
   realtime: RealtimeClient,
   roomId: string,
   meUserId: string,
   logEl: HTMLElement,
   formEl: HTMLFormElement,
-  inputEl: HTMLTextAreaElement,  
+  inputEl: HTMLTextAreaElement,
+  labelOf: (userId: string) => string = (u) => (u === meUserId ? "You" : "Member"),
 ): ChatHandle {
   const off = realtime.on("chat.msg", (env) => {
-    const payload = env.payload as ChatMessage | undefined;
-    if (!payload || payload.roomId !== roomId) return;
-    appendMessage(logEl, payload, meUserId);
+    const m = env.payload as ChatMessage | undefined;
+    if (!m || m.roomId !== roomId) return;
+    logEl.querySelector(".rm-chat__empty")?.remove();
+    appendMessage(logEl, m, meUserId, labelOf(m.userId));
   });
 
   const onSubmit = (e: Event) => {
     e.preventDefault();
     const text = inputEl.value.trim();
     if (!text) return;
-    const id = realtime.send("chat.send", { roomId, text });
-    if (id === null) return; // socket not open; nothing queued — drop silently
+    if (realtime.send("chat.send", { roomId, text }) === null) return; // not connected: keep the text
     inputEl.value = "";
   };
+  // Enter sends, Shift+Enter makes a new line.
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); formEl.requestSubmit(); }
+  };
   formEl.addEventListener("submit", onSubmit);
+  inputEl.addEventListener("keydown", onKey);
 
   return {
-    send(text) {
-      realtime.send("chat.send", { roomId, text });
-    },
     destroy() {
       off();
       formEl.removeEventListener("submit", onSubmit);
+      inputEl.removeEventListener("keydown", onKey);
     },
   };
 }
 
-function appendMessage(logEl: HTMLElement, m: ChatMessage, meUserId: string) {
+function appendMessage(logEl: HTMLElement, m: ChatMessage, meUserId: string, who: string) {
   const row = document.createElement("div");
-  row.className = "rm-chat__msg";
-  if (m.userId === meUserId) row.classList.add("rm-chat__msg--me");
+  row.className = "rm-chat__msg" + (m.userId === meUserId ? " rm-chat__msg--me" : "");
 
   const meta = document.createElement("div");
   meta.className = "rm-chat__meta";
-  const who = document.createElement("span");
-  who.textContent = m.userId === meUserId ? "You" : "Member";
+  const name = document.createElement("span");
+  name.textContent = who;
   const when = document.createElement("time");
   when.dateTime = m.sentAt;
   when.textContent = new Date(m.sentAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  meta.append(who, when);
+  meta.append(name, when);
 
   const body = document.createElement("p");
   body.className = "rm-chat__text";
-  body.textContent = m.text; // textContent, NOT innerHTML — prevents XSS
+  body.textContent = m.text; // textContent, never innerHTML: no XSS
 
   row.append(meta, body);
+  const stick = logEl.scrollTop + logEl.clientHeight >= logEl.scrollHeight - 40;
   logEl.append(row);
-  logEl.scrollTop = logEl.scrollHeight;
+  if (stick) logEl.scrollTop = logEl.scrollHeight;
 }

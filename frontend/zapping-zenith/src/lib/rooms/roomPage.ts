@@ -1,14 +1,15 @@
+// frontend: src/lib/rooms/roomPage.ts
 /**
- * Room page controller. Loads the room, decides which honest state to show, and runs the local
- * camera/microphone experience.
+ * Room page controller. Loads the room, decides which honest state to show, then runs the live room.
  *
  * Four different things, kept apart on purpose (code and wording):
- *   1. the persistent ROOM            -> `Room` from lib/api/rooms.ts (a place that exists)
- *   2. a FOCUS SESSION                -> not built; never mentioned in this page
- *   3. an active CALL                 -> not built (later: peer-to-peer WebRTC)
- *   4. the WebSocket CONNECTION       -> ConnectionStatus below (UI only; see startPresence)
+ *   1. the persistent ROOM        -> `Room` from lib/api/room (a place that exists)
+ *   2. a FOCUS SESSION            -> not built; never mentioned here
+ *   3. the live STREAM (the call) -> lib/stream/*, peer-to-peer WebRTC, only while people are in the room
+ *   4. the WebSocket CONNECTION   -> RealtimeClient; the badge in the People tab
  *
- * Authorization is the backend's. This file only reads `canEnter` to decide what to show.
+ * Who is the host is decided by the SERVER (stream.joined). Only the group owner publishes video;
+ * everyone else has a microphone. This file only follows that decision to decide what to show.
  */
 
 import { roomsApi, type Room } from "../api/room";
@@ -22,11 +23,12 @@ import { blockedCopy, viewForError, viewForRoom } from "./roomView";
 import { RealtimeClient } from "../realtime/client";
 import type { RealtimeStatus } from "../realtime/types";
 import type { User } from "../api/auth";
-import { initStream } from "../stream/streamPage";
+import { initStream, type HostVideoState } from "../stream/streamPage";
+import type { RosterEntry, StreamRole } from "../stream/types";
 import { initChat } from "../stream/chat";
+import { initRoomNotes } from "./roomNotes";
 
-
-/* ------------------------------------------------------------ small DOM helpers */
+/* ------------------------------------------------------------ small helpers */
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls = "", text?: string) {
   const e = document.createElement(tag);
@@ -38,9 +40,15 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls = "", text?: stri
 const initialsOf = (name: string) =>
   name.trim().split(/\s+/).slice(0, 2).map((w) => w.charAt(0).toUpperCase()).join("") || "?";
 
-/* ------------------------------------------------------------ connection status (UI) */
+const pad = (n: number) => String(n).padStart(2, "0");
+function formatElapsed(ms: number) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  return h ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
+}
 
-/** What the People tab shows about the realtime (WebSocket) connection: RealtimeStatus from lib/realtime/types.ts. */
+/* ------------------------------------------------------------ connection badge */
+
 const CONNECTION_UI: Record<RealtimeStatus, { label: string; cls: string; announce: boolean }> = {
   idle: { label: "Not connected yet", cls: "gx-badge--muted", announce: false },
   connecting: { label: "Connecting…", cls: "", announce: false },
@@ -49,30 +57,6 @@ const CONNECTION_UI: Record<RealtimeStatus, { label: string; cls: string; announ
   closed: { label: "Disconnected", cls: "gx-badge--muted", announce: true },
   unauthorized: { label: "Session ended", cls: "rm-badge--bad", announce: true },
 };
-
-interface PresenceContext {
-  groupId: string;
-  roomId: string;
-  user: User;
-  /** The tab's realtime connection (stage 1). Already started; its status drives the badge. */
-  realtime: RealtimeClient;
-}
-
-/**
- * EXTENSION POINT: presence (next stage). Intentionally empty.
- *
- * ctx.realtime is a live RealtimeClient, so this is where to:
- *   1. when realtime.status is "open" (use realtime.onStatus; it also fires after every reconnect),
- *      send `room.join` for ctx.roomId with realtime.send(...). send() returns null while the socket
- *      isn't open and queues nothing, so re-send on each "open";
- *   2. subscribe with realtime.on("room.state", ...) and render people into [data-rm-people-list]
- *      (me stays first);
- *   3. return a function that sends the leave message and unsubscribes.
- * The persistent room, the realtime connection and "being present" are three separate things.
- */
-function startPresence(_ctx: PresenceContext): () => void {
-  return () => {};
-}
 
 /* ------------------------------------------------------------------- entry point */
 
@@ -126,10 +110,7 @@ export function initRoomPage() {
     } catch (err) {
       const v = viewForError(err);
       if (v.kind === "missing") {
-        showProblem({
-          title: "We couldn't open this room",
-          text: "The link may be wrong, the room may have been removed, or you may not have access to this group.",
-        });
+        showProblem({ title: "We couldn't open this room", text: "The link may be wrong, the room may have been removed, or you may not have access to this group." });
       } else {
         showProblem({ title: "Couldn't load this room", text: describeError(err), retry: true });
       }
@@ -144,8 +125,7 @@ export function initRoomPage() {
 
     const view = viewForRoom(room);
     if (view.kind === "blocked") {
-      // No camera controls for someone who can't enter.
-      enterBox.hidden = true;
+      enterBox.hidden = true; // no camera or microphone for someone who can't enter
       const copy = blockedCopy[view.reason];
       blockedBox.replaceChildren();
       const card = el("section", "rm-blocked");
@@ -164,7 +144,7 @@ export function initRoomPage() {
     enterBox.hidden = false;
     if (!entered) {
       entered = true;
-      enterRoom(user, room.myRoomRole === "host" ? "host" : "viewer");
+      enterRoom(user, room);
     }
   }
 
@@ -182,17 +162,21 @@ export function initRoomPage() {
     badges.replaceChildren();
     const restricted = room.access === "restricted";
     badges.append(el("span", `gx-badge ${restricted ? "gx-badge--muted" : "gx-badge--ok"}`, restricted ? "Restricted" : "Open to group"));
-    if (room.myRoomRole === "host") badges.append(el("span", "gx-badge", "You host this room"));
     if (typeof room.capacity === "number") badges.append(el("span", "gx-badge gx-badge--muted", `Up to ${room.capacity} people`));
     if (room.archivedAt) badges.append(el("span", "gx-badge gx-badge--muted", "Archived"));
   }
 
   /* ----------------------------------------------------------- the room itself */
 
-  // function enterRoom(user: User) {
-    function enterRoom(user: User, myRoomRole: "host" | "viewer") {
+  function enterRoom(user: User, room: Room) {
     const media = new LocalMedia();
     const myName = displayNameOf(user);
+    const enteredAt = Date.now();
+    let role: StreamRole | "pending" = "pending";
+    let roster: RosterEntry[] = [];
+    let myConnId = "";
+    let hostState: HostVideoState = { present: false, link: "none", live: false };
+    let wsStatus: RealtimeStatus = "idle";
 
     // Stage
     const tile = $("[data-rm-self]");
@@ -203,8 +187,10 @@ export function initRoomPage() {
     const micStartBtns = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-rm-mic-start]"));
     const micRow = $("[data-rm-mic-row]");
     const tileMuted = $("[data-rm-tile-muted]");
+    const onAir = $("[data-rm-onair]");
     const camErrBox = $("[data-rm-cam-error]");
     const micErrBox = $("[data-rm-mic-error]");
+    const problemBox = $("[data-rm-problem]");
     const meterBox = $("[data-rm-meterbox]");
     const meterBar = $("[data-rm-meter-bar]");
     const micState = $("[data-rm-mic-state]");
@@ -213,6 +199,25 @@ export function initRoomPage() {
     const camSelect = $<HTMLSelectElement>("[data-rm-cam-select]");
     const micSelect = $<HTMLSelectElement>("[data-rm-mic-select]");
     const devicesHint = $("[data-rm-devices-hint]");
+    const remoteVideo = $<HTMLVideoElement>("[data-rm-remote-video]");
+    const remoteWrap = $("[data-rm-remote-wrap]");
+    const remoteCover = $("[data-rm-remote-cover]");
+    const remoteTitle = $("[data-rm-remote-title]");
+    const remoteText = $("[data-rm-remote-text]");
+    const playBtn = $<HTMLButtonElement>("[data-rm-play]");
+    const audioSink = $("[data-rm-audio-sink]");
+    const joiningTitle = $("[data-rm-joining-title]");
+    const joiningText = $("[data-rm-joining-text]");
+
+    // Session bar
+    const clockEl = $("[data-rm-clock]");
+    const secEl = $("[data-rm-seconds]");
+    const dateEl = $("[data-rm-date]");
+    const tzEl = $("[data-rm-tz]");
+    const elapsedEl = $("[data-rm-elapsed]");
+    const countEl = $("[data-rm-count]");
+    const statusPill = $("[data-rm-status]");
+    const statusText = $("[data-rm-status-text]");
 
     // Control bar
     const barCam = $<HTMLButtonElement>("[data-rm-bar-cam]");
@@ -224,75 +229,162 @@ export function initRoomPage() {
     // Side panel
     const side = $("[data-rm-side]");
     const layout = $("[data-rm-layout]");
-    const meStatus = $("[data-rm-me-status]");
+    const peopleList = $("[data-rm-people-list]");
     const connBadge = $("[data-rm-conn]");
-
-    root.querySelectorAll("[data-rm-initials], [data-rm-me-initials]").forEach((n) => (n.textContent = initialsOf(myName)));
-    $("[data-rm-me-name]").textContent = myName;
-
-    /* ---- realtime connection (stage 1 RealtimeClient). Status only; presence is a later stage. ---- */
     const connNote = $("[data-rm-conn-note]");
+
+    root.querySelectorAll("[data-rm-initials]").forEach((n) => (n.textContent = initialsOf(myName)));
+
+    /* ---- clock and time in room ---- */
+    const tzName = new Intl.DateTimeFormat(undefined, { timeZoneName: "short" }).formatToParts(new Date()).find((p) => p.type === "timeZoneName")?.value ?? "";
+    const timeFmt = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" });
+    const dateFmt = new Intl.DateTimeFormat(undefined, { weekday: "long", day: "numeric", month: "long" });
+    function tick() {
+      const now = new Date();
+      clockEl.textContent = timeFmt.format(now);
+      clockEl.setAttribute("datetime", now.toISOString());
+      secEl.textContent = `:${pad(now.getSeconds())}`;
+      dateEl.textContent = dateFmt.format(now);
+      tzEl.textContent = tzName;
+      elapsedEl.textContent = formatElapsed(Date.now() - enteredAt);
+    }
+    tick();
+    const clockTimer = window.setInterval(tick, 1000);
+
+    /* ---- role: decided by the server ---- */
+    function setRole(r: StreamRole) {
+      role = r;
+      enterBox.dataset.role = r;
+      announce(r === "host" ? "You are the host of this room." : "You joined as a member. Only the host shares video.");
+      // Whatever the person had on when the role arrived keeps working; nothing is switched on for them.
+      renderStatus();
+      renderHost();
+      renderPeople();
+    }
+
+    /* ---- status pill ---- */
+    function renderStatus() {
+      let state = "connecting", text = "Connecting…";
+      if (wsStatus === "reconnecting") { state = "warn"; text = "Reconnecting…"; }
+      else if (wsStatus === "unauthorized") { state = "bad"; text = "Session ended"; }
+      else if (role === "host") {
+        const camOn = media.getState().camera.status === "on";
+        state = camOn ? "live" : "idle"; text = camOn ? "On air" : "Camera off";
+      } else if (role === "viewer") {
+        if (!hostState.present) { state = "idle"; text = "Waiting for the host"; }
+        else if (hostState.live) { state = "live"; text = "Live"; }
+        else { state = "idle"; text = "Host is here"; }
+      } else if (wsStatus === "open") { text = "Joining…"; }
+      statusPill.dataset.state = state;
+      statusText.textContent = text;
+    }
+
+    /* ---- viewer: the host's picture ---- */
+    function renderHost() {
+      if (role !== "viewer") return;
+      const s = hostState;
+      let title = "", text = "";
+      if (!s.present) { title = "Waiting for the host"; text = "The group owner hasn't opened the room yet. Video starts by itself when they do."; }
+      else if (s.link === "failed") { title = "Couldn't connect to the host"; text = "Your network may block direct video connections. Reload the page, or try another network."; }
+      else if (s.link === "connected" && !s.live) { title = "The host's camera is off"; text = "You're connected. Video appears as soon as the host turns it on."; }
+      else if (!s.live) { title = "Connecting to the host…"; }
+      remoteCover.hidden = s.live;
+      remoteWrap.classList.toggle("has-video", s.live);
+      remoteTitle.textContent = title;
+      remoteText.textContent = text;
+      remoteText.hidden = !text;
+    }
+
+    /* ---- people ---- */
+    const labelOf = (userId: string) => {
+      if (userId === user.id) return "You";
+      const e = roster.find((r) => r.userId === userId);
+      return e?.role === "host" ? "Host" : "Member";
+    };
+    function renderPeople() {
+      peopleList.replaceChildren();
+      const list = [...roster].sort((a, b) => (a.connectionId === myConnId ? -1 : b.connectionId === myConnId ? 1 : a.role === "host" ? -1 : b.role === "host" ? 1 : 0));
+      if (!list.length) {
+        const li = el("li", "rm-person");
+        li.append(el("span", "gx-avatar", initialsOf(myName)), el("span", "rm-person__body", `${myName} (you)`));
+        peopleList.append(li);
+      }
+      for (const p of list) {
+        const mine = p.connectionId === myConnId;
+        const sameUser = p.userId === user.id;
+        const li = el("li", "rm-person");
+        const av = el("span", "gx-avatar", mine || sameUser ? initialsOf(myName) : p.role === "host" ? "H" : "M");
+        av.setAttribute("aria-hidden", "true");
+        const body = el("span", "rm-person__body");
+        const name = el("span", "rm-person__name", mine ? `${myName} ` : sameUser ? `${myName} ` : p.role === "host" ? "Host " : "Member ");
+        if (mine) name.append(el("span", "rm-person__you", "(you)"));
+        else if (sameUser) name.append(el("span", "rm-person__you", "(your other tab)"));
+        const status = el("span", "rm-person__status", p.role === "host" ? "Group owner · hosting" : "Member");
+        if (mine) {
+          const s = media.getState();
+          const micOn = s.microphone.status === "on";
+          status.textContent = p.role === "host"
+            ? `Hosting · camera ${s.camera.status === "on" ? "on" : "off"} · mic ${micOn ? (s.microphone.muted ? "muted" : "on") : "off"}`
+            : `Mic ${micOn ? (s.microphone.muted ? "muted" : "on") : "off"}`;
+        }
+        body.append(name, status);
+        li.append(av, body);
+        peopleList.append(li);
+      }
+      countEl.textContent = String(Math.max(1, roster.length));
+    }
+
+    /* ---- realtime connection + live stream ---- */
     const setConnectionStatus = (s: RealtimeStatus, detail?: string) => {
+      wsStatus = s;
       const ui = CONNECTION_UI[s];
       connBadge.className = `gx-badge ${ui.cls}`.trim();
       connBadge.textContent = ui.label;
       connBadge.title = detail ?? "";
       connNote.hidden = s !== "unauthorized";
-      if (ui.announce) announce(`Realtime connection: ${ui.label.replace("…", "")}`);
+      if (ui.announce) announce(`Connection: ${ui.label.replace("…", "")}`);
+      if (s === "reconnecting" || s === "unauthorized") {
+        joiningTitle.textContent = s === "unauthorized" ? "Your session has ended" : "Reconnecting…";
+      }
+      renderStatus();
     };
-    // const realtime = new RealtimeClient();
-    // const offStatus = realtime.onStatus(setConnectionStatus);
-    // realtime.start();
-    // const stopPresence = startPresence({ groupId, roomId, user, realtime });
-    // let realtimeStopped = false;
-    // const stopRealtime = () => {
-    //   if (realtimeStopped) return;
-    //   realtimeStopped = true;
-    //   stopPresence();
-    //   offStatus(); // unsubscribe first so leaving doesn't announce "Disconnected"
-    //   realtime.stop();
-    // };
-    // const realtime = new RealtimeClient();
-    // const offStatus = realtime.onStatus(setConnectionStatus);
-    // realtime.start();
-    // const stopPresence = startPresence({ groupId, roomId, user, realtime });
-    // let realtimeStopped = false;
-    // const stopRealtime = () => {
-    //   if (realtimeStopped) return;
-    //   realtimeStopped = true;
-    //   stopPresence();
-    //   offStatus();
-    //   realtime.stop();
-    // };
-
     const realtime = new RealtimeClient();
     const offStatus = realtime.onStatus(setConnectionStatus);
     realtime.start();
-    
-    // Stream: join the room's WebRTC stream.
-    const remoteVideoEl = root.querySelector<HTMLVideoElement>("[data-rm-remote-video]");
-    const streamHandle = remoteVideoEl
-      ? initStream(realtime, media, roomId, groupId, myRoomRole, remoteVideoEl)
-      : null;
-    
-    // Chat: send and receive messages through the same realtime socket.
-    const chatLog = root.querySelector<HTMLElement>("[data-rm-chat-log]");
-    const chatForm = root.querySelector<HTMLFormElement>("[data-rm-chat-form]");
-    const chatInput = root.querySelector<HTMLTextAreaElement>("[data-rm-chat-input]");
-    const chat = (chatLog && chatForm && chatInput)
-      ? initChat(realtime, roomId, user.id, chatLog, chatForm, chatInput)
-      : null;
-    
-    let realtimeStopped = false;
-    const stopRealtime = () => {
-      if (realtimeStopped) return;
-      realtimeStopped = true;
-      chat?.destroy();
-      streamHandle?.leave();
-      offStatus();
+
+    const stream = initStream({
+      realtime, media, roomId, groupId, remoteVideo, audioSink,
+      onRole: setRole,
+      onRoster: (r) => { roster = r.participants; myConnId = r.myConnId; renderPeople(); },
+      onHostVideo: (s) => { hostState = s; renderHost(); renderStatus(); },
+      onPlaybackBlocked: (blocked) => { playBtn.hidden = !blocked; if (blocked) announce("Press the button to start video and sound."); },
+      onProblem: (msg) => {
+        joiningTitle.textContent = "Couldn't join the live room";
+        joiningText.textContent = msg;
+        problemBox.replaceChildren(Object.assign(el("div", "notice notice--error rm-error"), { textContent: msg }));
+      },
+    });
+    playBtn.addEventListener("click", () => stream.resumePlayback());
+
+    const chatLog = $("[data-rm-chat-log]");
+    const chat = initChat(realtime, roomId, user.id, chatLog, $<HTMLFormElement>("[data-rm-chat-form]"), $<HTMLTextAreaElement>("[data-rm-chat-input]"), labelOf);
+    const notes = initRoomNotes(root, { groupId, roomName: room.name });
+
+    // The Ask AI form is inert on purpose.
+    root.querySelector("[data-rm-ai-form]")?.addEventListener("submit", (e) => e.preventDefault());
+
+    let torn = false;
+    const teardown = () => {
+      if (torn) return;
+      torn = true;
+      window.clearInterval(clockTimer);
+      notes.flush();
+      chat.destroy();
+      stream.leave();
+      offStatus(); // unsubscribe first so leaving doesn't announce "Disconnected"
       realtime.stop();
     };
-      
+
     /* ---- microphone level meter ---- */
     let meter: LevelMeter | null = null;
     const stopMeter = () => { meter?.stop(); meter = null; meterBar.style.transform = "scaleX(0)"; };
@@ -301,7 +393,7 @@ export function initRoomPage() {
       meter = startLevelMeter(media.getStream(), (lvl) => { meterBar.style.transform = `scaleX(${lvl.toFixed(3)})`; });
     };
 
-    /* ---- rendering ---- */
+    /* ---- rendering local media ---- */
     let prev: LocalMediaState | null = null;
     const lastErr = new Map<string, MediaFailure | undefined>();
 
@@ -316,8 +408,6 @@ export function initRoomPage() {
       box.append(n);
       announce(f.title);
     }
-
-      
 
     function startLabel(k: KindState, idle: string, noun: string) {
       if (k.status === "starting") return { text: `Starting ${noun}…`, disabled: true };
@@ -337,7 +427,7 @@ export function initRoomPage() {
       };
       fill(camSelect, list.cameras, s.camera.deviceId);
       fill(micSelect, list.microphones, s.microphone.deviceId);
-      const showCam = s.camera.status === "on" && list.cameras.length > 0;
+      const showCam = role === "host" && s.camera.status === "on" && list.cameras.length > 0;
       const showMic = s.microphone.status === "on" && list.microphones.length > 0;
       camPick.hidden = !showCam;
       micPick.hidden = !showMic;
@@ -349,7 +439,7 @@ export function initRoomPage() {
       const camOn = cam.status === "on";
       const micOn = mic.status === "on";
 
-      // Self-view
+      // Host self-view
       if (camOn && prev?.camera.status !== "on") {
         video.srcObject = media.getStream();
         void video.play().catch(() => {});
@@ -357,6 +447,7 @@ export function initRoomPage() {
       if (!camOn) video.srcObject = null;
       tile.classList.toggle("has-video", camOn);
       cover.hidden = camOn;
+      onAir.hidden = !camOn;
       tileMuted.hidden = !(micOn && mic.muted);
 
       // Start buttons
@@ -367,12 +458,10 @@ export function initRoomPage() {
       micStartBtns.forEach((b) => {
         b.querySelector("[data-rm-mic-start-label]")!.textContent = ml.text;
         b.disabled = ml.disabled;
-        // The cover shows its own mic button while the camera is off; the row takes over once the camera is on.
         if (b.hasAttribute("data-rm-mic-in-cover")) b.hidden = micOn;
       });
-      micRow.hidden = !(camOn && !micOn);
+      micRow.hidden = micOn || (role === "host" && !camOn); // the host's cover already has a mic button
 
-      // Errors, meter, mic state text
       renderFailure("camera", camErrBox, cam.error);
       renderFailure("microphone", micErrBox, mic.error);
       meterBox.hidden = !micOn;
@@ -381,23 +470,20 @@ export function initRoomPage() {
       if (!micOn && meter) stopMeter();
 
       // Control bar
-      const camBarState = cam.status; // off | starting | on | error
-      barCam.dataset.state = camBarState;
-      barCamState.textContent = { off: "Off", starting: "Starting…", on: "On", error: "Problem" }[camBarState];
+      barCam.dataset.state = cam.status;
+      barCamState.textContent = { off: "Off", starting: "Starting…", on: "On", error: "Problem" }[cam.status];
       barCam.setAttribute("aria-label", camOn ? "Turn off camera" : cam.status === "starting" ? "Camera is starting" : "Turn on camera");
       const micBarState = micOn ? (mic.muted ? "muted" : "on") : mic.status;
       barMic.dataset.state = micBarState;
       barMicState.textContent = { off: "Off", starting: "Starting…", on: "On", muted: "Muted", error: "Problem" }[micBarState]!;
       barMic.setAttribute("aria-label", micOn ? (mic.muted ? "Unmute microphone" : "Mute microphone") : mic.status === "starting" ? "Microphone is starting" : "Turn on microphone");
 
-      // People tab: me
-      meStatus.textContent = `Camera ${camOn ? "on" : "off"} · Microphone ${micOn ? (mic.muted ? "muted" : "on") : "off"}`;
-
       renderDevices(media.getDevices(), s);
+      renderStatus();
+      renderPeople();
 
-      // Screen-reader announcements for real transitions only
       if (prev) {
-        if (prev.camera.status !== "on" && camOn) announce("Camera on");
+        if (prev.camera.status !== "on" && camOn) announce("Camera on. Everyone in the room can see you.");
         if (prev.camera.status === "on" && !camOn && !cam.error) announce("Camera off");
         if (prev.microphone.status !== "on" && micOn) announce("Microphone on");
         if (prev.microphone.status === "on" && micOn && prev.microphone.muted !== mic.muted) announce(mic.muted ? "Microphone muted" : "Microphone unmuted");
@@ -411,7 +497,7 @@ export function initRoomPage() {
     render(media.getState());
 
     /* ---- actions (every getUserMedia call starts from a click: a user gesture) ---- */
-    const startCamera = () => { if (media.getState().camera.status !== "starting") void media.startCamera(camSelect.value || undefined); };
+    const startCamera = () => { if (role === "host" && media.getState().camera.status !== "starting") void media.startCamera(camSelect.value || undefined); };
     const startMic = () => { if (media.getState().microphone.status !== "starting") void media.startMicrophone(micSelect.value || undefined); };
 
     camStartBtn.addEventListener("click", startCamera);
@@ -433,7 +519,7 @@ export function initRoomPage() {
       const wasMuted = media.getState().microphone.muted;
       const ok = await media.startMicrophone(micSelect.value);
       if (ok && wasMuted) media.setMicrophoneMuted(true);
-      if (ok) startMeter(); // the track changed, so the analyser must follow it
+      if (ok) startMeter();
     });
 
     /* ---- side panel: tabs + collapse ---- */
@@ -457,38 +543,32 @@ export function initRoomPage() {
       side.hidden = !open;
       layout.classList.toggle("is-side-hidden", !open);
       sideToggle.setAttribute("aria-expanded", String(open));
-      sideToggle.setAttribute("aria-label", open ? "Hide People & chat panel" : "Show People & chat panel");
+      sideToggle.setAttribute("aria-label", open ? "Hide side panel" : "Show side panel");
       if (focus === "tab") tabs.find((t) => t.getAttribute("aria-selected") === "true")?.focus();
       if (focus === "toggle") sideToggle.focus();
     }
-    // Side by side on desktop (open), stacked on mobile (starts collapsed so the stage and controls stay in reach).
     setSide(window.matchMedia("(min-width: 62rem)").matches);
     sideToggle.addEventListener("click", () => { const open = side.hidden; setSide(open, open ? "tab" : undefined); });
     $("[data-rm-side-close]").addEventListener("click", () => setSide(false, "toggle"));
 
-    /* ---- chat composer is inert for now ---- */
-    // EXTENSION POINT: persistent chat. Load history into [data-rm-chat-log], enable the
-    // <fieldset> in the form and send through the chat API. Until then nothing is sent.
-    // $("[data-rm-chat-form]").addEventListener("submit", (e) => e.preventDefault());
-
-    // EXTENSION POINT: WebRTC signalling (later stage).
-    // The call will be peer-to-peer. Reuse `media.getStream()` / `media.getTrack("camera" | "microphone")`
-    // for the outgoing tracks, listen with `media.subscribe()` to replaceTrack() when the device changes,
-    // and add one tile per remote peer inside [data-rm-remote-grid]. Signalling goes over the realtime hub.
-    // Don't start a call from this page load: a call is separate from the room existing.
+    /* ---- if the server never answers the join, say so instead of spinning forever ---- */
+    window.setTimeout(() => {
+      if (role === "pending" && wsStatus === "open" && !problemBox.hasChildNodes()) {
+        joiningTitle.textContent = "Still joining…";
+        joiningText.textContent = "This is taking longer than usual. Reload the page if it doesn't start.";
+      }
+    }, 8000);
 
     /* ---- letting go of the camera: leave, page hide, navigation ---- */
-    $("[data-rm-leave]").addEventListener("click", () => { media.stopAll(); stopRealtime(); }); // the link then navigates
+    $("[data-rm-leave]").addEventListener("click", () => { media.stopAll(); teardown(); }); // the link then navigates
     window.addEventListener("pagehide", (e) => {
-      media.stopAll(); // also covers navigation, reload, tab close and back/forward cache
-      stopRealtime();
+      media.stopAll(); // covers navigation, reload, tab close and back/forward cache
+      teardown();
       if (!e.persisted) { stopMeter(); media.destroy(); }
     });
-    // Restored from the back/forward cache: camera and connection were released, so start from a clean page.
     window.addEventListener("pageshow", (e) => { if (e.persisted) location.reload(); });
     window.addEventListener("beforeunload", () => media.stopAll());
   }
 
   load();
 }
-

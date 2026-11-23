@@ -20,6 +20,4 @@ export type RealtimeStatus =
   | "open"
   | "reconnecting"  // waiting to retry
   | "closed"        // stopped on purpose, or the session ended
-  | "unauthorized"    // the server rejected the connection
-
-
+  | "unauthorized"; // the server says you are logged out
