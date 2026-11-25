@@ -553,9 +553,22 @@ export function initRoomPage() {
 
     /* ---- if the server never answers the join, say so instead of spinning forever ---- */
     window.setTimeout(() => {
-      if (role === "pending" && wsStatus === "open" && !problemBox.hasChildNodes()) {
+      if (role !== "pending") return;            // joined (or role derived from state)
+      if (wsStatus !== "open") return;           // already shows connection problem
+    
+      if (problemBox.hasChildNodes()) return;    // a join error is already shown
+    
+      // If stream.state arrived and lists us, we ARE in the room — the host just
+      // isn't publishing yet. Say that instead of pretending we're still joining.
+      const inRoster = roster.some((r) => r.connectionId === myConnId);
+      if (inRoster) {
+        joiningTitle.textContent = "You're in the room";
+        joiningText.textContent =
+          "Nobody is publishing video yet. If you are the group owner, turn on your camera to start.";
+      } else {
         joiningTitle.textContent = "Still joining…";
-        joiningText.textContent = "This is taking longer than usual. Reload the page if it doesn't start.";
+        joiningText.textContent =
+          "This is taking longer than usual. Reload the page if it doesn't start.";
       }
     }, 8000);
 
