@@ -1,64 +1,71 @@
 ---
 /**
- * Side panel with two tabs: People and Chat. Collapsible (button in the header, and the
- * "People & chat" button in the control bar). Tab behaviour: src/lib/rooms/roomPage.ts.
+ * Side panel: People, Chat, Notes, Ask AI. Collapsible.
  *
- * People: shows only me for now, plus the status of the realtime (WebSocket) connection
- *   (RealtimeClient status, wired in roomPage.ts).
- *   EXTENSION POINT (presence): render other people into [data-rm-people-list] from the
- *   room.state message of the realtime hub, after sending room.join (see startPresence in roomPage.ts).
- * Chat: a disabled composer. Nothing is sent or stored.
- *   EXTENSION POINT (persistent chat): load history into [data-rm-chat-log] from the chat API,
- *   enable the form, and append messages as they arrive.
+ * People : live roster from the stream (server-authoritative) + realtime connection status.
+ * Chat   : live messages through the realtime hub (not stored yet).
+ * Notes  : my private notes for this room (existing Notes API), plus notes the group shared.
+ * Ask AI : interface only. Nothing is sent anywhere and no answers are made up.
  */
 ---
-<aside class="rm-side" id="rm-side" aria-label="People and chat" data-rm-side>
+<aside class="rm-side" id="rm-side" aria-label="Room panel" data-rm-side>
   <div class="rm-side__head">
     <div class="rm-tabs" role="tablist" aria-label="Side panel sections">
       <button class="rm-tab" role="tab" type="button" id="rm-tab-people" aria-controls="rm-pane-people" aria-selected="true" data-rm-tab="people">People</button>
       <button class="rm-tab" role="tab" type="button" id="rm-tab-chat" aria-controls="rm-pane-chat" aria-selected="false" tabindex="-1" data-rm-tab="chat">Chat</button>
+      <button class="rm-tab" role="tab" type="button" id="rm-tab-notes" aria-controls="rm-pane-notes" aria-selected="false" tabindex="-1" data-rm-tab="notes">Notes</button>
+      <button class="rm-tab" role="tab" type="button" id="rm-tab-ai" aria-controls="rm-pane-ai" aria-selected="false" tabindex="-1" data-rm-tab="ai">Ask AI</button>
     </div>
-    <button class="btn btn--ghost btn--sm rm-side__close" type="button" data-rm-side-close aria-label="Hide People &amp; chat panel">Hide</button>
+    <button class="btn btn--ghost btn--sm rm-side__close" type="button" data-rm-side-close aria-label="Hide side panel">Hide</button>
   </div>
 
+  <!-- People -->
   <div class="rm-pane" role="tabpanel" id="rm-pane-people" aria-labelledby="rm-tab-people" data-rm-pane="people" tabindex="0">
     <div class="rm-conn">
-      <span class="rm-conn__label">Realtime connection</span>
+      <span class="rm-conn__label">Connection</span>
       <span class="gx-badge gx-badge--muted" data-rm-conn>Not connected yet</span>
     </div>
     <p class="notice notice--error rm-note" data-rm-conn-note role="alert" hidden>Your session has ended. <a href="/login">Sign in again</a> to reconnect.</p>
-    <ul class="rm-people" data-rm-people-list>
-      <li class="rm-person">
-        <span class="gx-avatar" data-rm-me-initials aria-hidden="true">?</span>
-        <span class="rm-person__body">
-          <span class="rm-person__name"><span data-rm-me-name>You</span> <span class="rm-person__you">(you)</span></span>
-          <span class="rm-person__status" data-rm-me-status>Camera off · Microphone off</span>
-        </span>
-      </li>
-    </ul>
-    <p class="notice rm-note">Others will appear here once presence is built.</p>
+    <ul class="rm-people" data-rm-people-list></ul>
   </div>
 
+  <!-- Chat -->
   <div class="rm-pane" role="tabpanel" id="rm-pane-chat" aria-labelledby="rm-tab-chat" data-rm-pane="chat" tabindex="0" hidden>
     <div class="rm-chat__log" data-rm-chat-log aria-live="polite">
-      <p class="notice rm-note">Say hello to the room.</p>
+      <p class="rm-note rm-chat__empty">Say hello to the room. Messages are shown live and aren't saved yet.</p>
     </div>
     <form class="rm-chat__form" data-rm-chat-form>
-      <fieldset class="rm-chat__fieldset">
-        <legend class="visually-hidden">Send a message to the room</legend>
-        <label class="visually-hidden" for="rm-chat-input">Message</label>
-        <textarea
-          class="textarea rm-chat__input"
-          id="rm-chat-input"
-          data-rm-chat-input
-          name="message"
-          rows="2"
-          maxlength="2000"
-          placeholder="Message the room…"
-          required
-        ></textarea>
-        <button class="btn btn--primary btn--sm" type="submit">Send</button>
-      </fieldset>
+      <label class="visually-hidden" for="rm-chat-input">Message</label>
+      <textarea class="textarea rm-chat__input" id="rm-chat-input" data-rm-chat-input name="message" rows="2" maxlength="2000" placeholder="Message the room…" required></textarea>
+      <button class="btn btn--primary btn--sm" type="submit">Send</button>
+    </form>
+  </div>
+
+  <!-- Notes -->
+  <div class="rm-pane" role="tabpanel" id="rm-pane-notes" aria-labelledby="rm-tab-notes" data-rm-pane="notes" tabindex="0" hidden>
+    <div class="field">
+      <label for="rm-notes-text">My notes for this room</label>
+      <textarea class="textarea rm-notes__text" id="rm-notes-text" data-rm-notes-text rows="10" maxlength="50000" placeholder="Jot down what matters. It saves by itself." disabled></textarea>
+    </div>
+    <div class="rm-notes__row">
+      <label class="check"><input type="checkbox" data-rm-notes-share disabled /><span>Share with the group</span></label>
+      <span class="rm-notes__status" data-rm-notes-status role="status">Loading your notes…</span>
+    </div>
+    <div class="rm-notes__shared" data-rm-notes-shared hidden></div>
+  </div>
+
+  <!-- Ask AI (interface only) -->
+  <div class="rm-pane" role="tabpanel" id="rm-pane-ai" aria-labelledby="rm-tab-ai" data-rm-pane="ai" tabindex="0" hidden>
+    <p class="notice rm-note">The study assistant isn't connected yet. Nothing you type here is sent anywhere.</p>
+    <ul class="rm-ai__chips" aria-label="Examples of what you'll be able to ask">
+      <li><button class="rm-chip" type="button" disabled>Summarise this session</button></li>
+      <li><button class="rm-chip" type="button" disabled>Explain this concept simply</button></li>
+      <li><button class="rm-chip" type="button" disabled>Quiz me on today's reading</button></li>
+    </ul>
+    <form class="rm-chat__form" data-rm-ai-form>
+      <label class="visually-hidden" for="rm-ai-input">Ask the study assistant</label>
+      <textarea class="textarea rm-chat__input" id="rm-ai-input" rows="2" placeholder="Ask the study assistant…" disabled></textarea>
+      <button class="btn btn--primary btn--sm" type="submit" disabled>Ask</button>
     </form>
   </div>
 </aside>

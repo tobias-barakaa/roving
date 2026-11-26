@@ -1,0 +1,89 @@
+---
+/**
+ * The stage. What it shows depends on the role the SERVER gave this connection
+ * (stream.joined): data-role on [data-rm-enterable] is "pending", "host" or "viewer".
+ *
+ *   host   : my own camera and microphone (only the group owner is the host).
+ *   viewer : the host's live video, plus my microphone.
+ *
+ * Markup only. Behaviour: src/lib/rooms/roomPage.ts, src/lib/stream/*.
+ * The self-view <video> is always muted (you never hear yourself). The host's
+ * <video> for viewers is NOT muted: they should hear the host.
+ */
+---
+<section class="rm-stage" aria-labelledby="rm-stage-title">
+  <h2 id="rm-stage-title" class="visually-hidden">Live room</h2>
+
+  <!-- Joining: shown until the server says what role I have -->
+  <div class="rm-tile rm-tile--joining" data-for="pending">
+    <div class="rm-cover">
+      <div class="rm-avatar rm-avatar--pulse" aria-hidden="true">…</div>
+      <p class="rm-cover__title" data-rm-joining-title>Joining the room…</p>
+      <p class="rm-cover__text" data-rm-joining-text>Checking that you can enter.</p>
+    </div>
+  </div>
+
+  <!-- Host: my own picture -->
+  <div class="rm-tile rm-tile--self" data-rm-self data-for="host">
+    <video class="rm-video" data-rm-video autoplay playsinline muted></video>
+    <div class="rm-cover" data-rm-cover>
+      <div class="rm-avatar" data-rm-initials aria-hidden="true">?</div>
+      <p class="rm-cover__title">You're the host of this room</p>
+      <p class="rm-cover__text">Turn on your camera and everyone in the room sees you. Members can only use their microphone.</p>
+      <div class="rm-cover__actions">
+        <button class="btn btn--primary rm-big" type="button" data-rm-cam-start>
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="13" height="12" rx="2"/><path d="m15 10 6-3v10l-6-3z"/></svg>
+          <span data-rm-cam-start-label>Turn on camera</span>
+        </button>
+        <button class="btn btn--secondary rm-big" type="button" data-rm-mic-start data-rm-mic-in-cover>
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+          <span data-rm-mic-start-label>Turn on microphone</span>
+        </button>
+      </div>
+    </div>
+    <div class="rm-tile__label"><span>You · host</span><span class="rm-tile__muted" data-rm-tile-muted hidden>Muted</span></div>
+    <span class="rm-onair" data-rm-onair hidden><span aria-hidden="true">●</span> On air</span>
+  </div>
+
+  <!-- Viewer: the host's picture -->
+  <div class="rm-tile rm-tile--remote" data-rm-remote-wrap data-for="viewer">
+    <video class="rm-video" data-rm-remote-video autoplay playsinline></video>
+    <div class="rm-cover" data-rm-remote-cover>
+      <div class="rm-avatar" aria-hidden="true">H</div>
+      <p class="rm-cover__title" data-rm-remote-title>Waiting for the host</p>
+      <p class="rm-cover__text" data-rm-remote-text></p>
+      <button class="btn btn--primary rm-big" type="button" data-rm-play hidden>Tap to start video and sound</button>
+    </div>
+    <div class="rm-tile__label"><span>Host</span></div>
+  </div>
+
+  <div class="rm-errors" data-rm-cam-error aria-live="polite"></div>
+  <div class="rm-errors" data-rm-mic-error aria-live="polite"></div>
+  <div class="rm-errors" data-rm-problem aria-live="polite"></div>
+
+  <div class="rm-panel rm-devices" data-rm-devices>
+    <p class="rm-devices__hint" data-for="viewer">Only the host shares video. You can talk with your microphone; the host hears you.</p>
+    <div class="rm-devices__mic" data-rm-mic-row>
+      <button class="btn btn--secondary btn--sm" type="button" data-rm-mic-start data-rm-mic-in-row>
+        <span data-rm-mic-start-label>Turn on microphone</span>
+      </button>
+    </div>
+    <div class="rm-meterbox" data-rm-meterbox hidden>
+      <span class="rm-meterbox__label">Microphone level</span>
+      <div class="rm-meter" role="presentation" aria-hidden="true"><span data-rm-meter-bar></span></div>
+      <span class="rm-meterbox__state" data-rm-mic-state>Off</span>
+    </div>
+    <div class="field" data-rm-cam-pick data-host-only hidden>
+      <label for="rm-cam-select">Camera</label>
+      <select class="select" id="rm-cam-select" data-rm-cam-select></select>
+    </div>
+    <div class="field" data-rm-mic-pick hidden>
+      <label for="rm-mic-select">Microphone</label>
+      <select class="select" id="rm-mic-select" data-rm-mic-select></select>
+    </div>
+    <p class="rm-devices__hint" data-rm-devices-hint>Device choices appear here once you allow your microphone.</p>
+  </div>
+
+  <!-- Host: viewers' voices play through <audio> elements added here -->
+  <div class="visually-hidden" data-rm-audio-sink aria-hidden="true"></div>
+</section>

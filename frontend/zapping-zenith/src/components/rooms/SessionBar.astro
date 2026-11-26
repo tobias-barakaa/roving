@@ -1,0 +1,18 @@
+---
+/**
+ * The strip under the title: the time, how long I've been here, who's here,
+ * and the live status of the room. All values are written by roomPage.ts.
+ * Time is the viewer's own local time, so it always matches their wall clock.
+ */
+---
+<section class="rm-session" aria-label="Session" data-rm-session>
+  <div class="rm-session__clock">
+    <div class="rm-clock"><time data-rm-clock>--:--</time><span class="rm-clock__sec" data-rm-seconds>:--</span></div>
+    <div class="rm-session__date"><span data-rm-date>&nbsp;</span><span class="rm-session__tz" data-rm-tz></span></div>
+  </div>
+  <dl class="rm-session__stats">
+    <div><dt>In this room for</dt><dd data-rm-elapsed>00:00</dd></div>
+    <div><dt>In the room now</dt><dd data-rm-count>1</dd></div>
+  </dl>
+  <p class="rm-pill" data-rm-status data-state="connecting"><span class="rm-pill__dot" aria-hidden="true"></span><span data-rm-status-text>Connecting…</span></p>
+</section>

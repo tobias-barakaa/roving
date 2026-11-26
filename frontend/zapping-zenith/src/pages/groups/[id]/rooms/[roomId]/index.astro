@@ -3,10 +3,10 @@ export const prerender = false;
 
 import "../../../../../styles/groups.css";
 import "../../../../../styles/rooms.css";
-import "../../../../../styles/rooms.css"
 import DashboardLayout from "../../../../../layouts/DashboardLayout.astro";
 import RoomHeader from "../../../../../components/rooms/RoomHeader.astro";
-import StageSelf from "../../../../../components/rooms/StageSelf.astro";
+import SessionBar from "../../../../../components/rooms/SessionBar.astro";
+import Stage from "../../../../../components/rooms/Stage.astro";
 import SidePanel from "../../../../../components/rooms/SidePanel.astro";
 import ControlBar from "../../../../../components/rooms/ControlBar.astro";
 import { ready, groupPaths } from "../../../../../lib/groups/routes";
@@ -15,31 +15,34 @@ const { id, roomId } = Astro.params;
 if (!id || !roomId) return Astro.redirect("/dashboard");
 
 const paths = groupPaths(id);
-// The group's Rooms tab isn't a page yet (ready.rooms is false in lib/groups/routes.ts), so until it is,
-// "rooms" means the Study rooms section of the group overview. Flip the flag and this follows.
+// Until the group's Rooms tab is a page, "rooms" means the Study rooms section of the overview.
 const roomsHref = ready.rooms ? paths.rooms : `${paths.overview}#rooms`;
 ---
 <DashboardLayout title="Room">
-  <div class="rm" data-rm data-group-id={id} data-room-id={roomId} data-group-href={paths.overview} data-rooms-href={roomsHref}>
+  <div class="rm" data-rm data-group-id={id} 
+  data-room-id={roomId} data-group-href={paths.overview} data-rooms-href={roomsHref}>
     <p class="visually-hidden" role="status" aria-live="polite" data-rm-live></p>
 
-    <!-- 1. loading, or one of the honest "can't open this" states -->
+    <!-- 1. loading, or an honest "can't open this" state -->
     <div data-rm-state aria-live="polite"></div>
 
     <!-- 2. the room (found) -->
-    <div class="rm" data-rm-room hidden>
+    <div data-rm-room hidden>
       <RoomHeader groupHref={paths.overview} roomsHref={roomsHref} />
 
-      <!-- found, but canEnter is not true: explanation only, no camera controls -->
+      <!-- found, but canEnter is not true: explanation only, no camera or mic -->
       <div data-rm-blocked hidden></div>
 
       <!-- found and enterable -->
-      <div class="rm" data-rm-enterable hidden>
+      <div data-rm-enterable data-role="pending" hidden>
+        <SessionBar />
         <div class="rm__layout" data-rm-layout>
-          <StageSelf />
+          <div class="rm__main">
+            <Stage />
+            <ControlBar leaveHref={roomsHref} />
+          </div>
           <SidePanel />
         </div>
-        <ControlBar leaveHref={roomsHref} />
       </div>
     </div>
   </div>
@@ -48,4 +51,4 @@ const roomsHref = ready.rooms ? paths.rooms : `${paths.overview}#rooms`;
 <script>
   import { initRoomPage } from "../../../../../lib/rooms/roomPage";
   initRoomPage();
-</script> 
+</script>

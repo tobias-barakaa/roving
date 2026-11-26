@@ -66,13 +66,22 @@ export function initStream(o: StreamOptions): StreamHandle {
     if (a) { a.srcObject = null; a.remove(); audioEls.delete(id); }
   }
 
+  // function resetAll() {
+  //   for (const id of [...peers.keys()]) dropPeer(id);
+  //   o.remoteVideo.srcObject = null;
+  //   hostPresent = false; link = "none"; hostCamera = false; framesFlowing = false; hostConnId = "";
+  //   pushHost();
+  // }
+
+
   function resetAll() {
     for (const id of [...peers.keys()]) dropPeer(id);
     o.remoteVideo.srcObject = null;
     hostPresent = false; link = "none"; hostCamera = false; framesFlowing = false; hostConnId = "";
+    roleApplied = false;   // add this
     pushHost();
   }
-
+  
   function makePeer(remoteId: string): Peer {
     const peer = new Peer({
       remoteConnID: remoteId,
@@ -127,42 +136,114 @@ export function initStream(o: StreamOptions): StreamHandle {
   /* ---- messages from the server ---- */
 
   // A new connection id means every old peer is stale (first connect, or after a reconnect).
+  // const offHello = realtime.on("hello", (env) => {
+  //   const p = env.payload as { connectionId?: string } | undefined;
+  //   if (p?.connectionId) myConnId = p.connectionId;
+  //   role = null;
+  //   announced = null;
+  //   resetAll();
+  // });
+  let roleApplied = false;
+  
+  // A new connection id means every old peer is stale (first connect, or after a reconnect).
   const offHello = realtime.on("hello", (env) => {
     const p = env.payload as { connectionId?: string } | undefined;
-    if (p?.connectionId) myConnId = p.connectionId;
-    role = null;
-    announced = null;
-    resetAll();
+    if (!p?.connectionId) return;
+    // Only reset on a *new* connection — a re-hello on the same socket must not
+    // clobber a role that stream.joined already set.
+    if (p.connectionId !== myConnId) {
+      myConnId = p.connectionId;
+      role = null;
+      roleApplied = false;
+      announced = null;
+      resetAll();
+    }
   });
+
+  
+
+  // const offJoined = realtime.on("stream.joined", (env) => {
+  //   const p = env.payload as StreamJoinedPayload | undefined;
+  //   if (!p || p.roomId !== roomId) return;
+  //   role = p.role;
+  //   myConnId = p.connectionId || myConnId;
+  //   o.onRole(p.role);
+  //   announceCamera(true);
+  // });
 
   const offJoined = realtime.on("stream.joined", (env) => {
     const p = env.payload as StreamJoinedPayload | undefined;
     if (!p || p.roomId !== roomId) return;
     role = p.role;
+    roleApplied = true;
     myConnId = p.connectionId || myConnId;
     o.onRole(p.role);
     announceCamera(true);
   });
+  
+  // const offState = realtime.on("stream.state", (env) => {
+  //   const p = env.payload as StreamStatePayload | undefined;
+  //   if (!p || p.roomId !== roomId || !role) return;
+  //   hostConnId = p.hostConnId;
+  //   hostCamera = !!p.hostCamera;
+  //   const ids = new Set(p.participants.map((x) => x.connectionId));
+  //   o.onRoster({ participants: p.participants, hostConnId, myConnId });
+
+  //   // Forget peers that left.
+  //   for (const id of [...peers.keys()]) if (!ids.has(id)) dropPeer(id);
+
+  //   if (role === "host") {
+  //     // The host opens one connection to every viewer.
+  //     for (const e of p.participants) {
+  //       if (e.connectionId === myConnId || peers.has(e.connectionId)) continue;
+  //       void makePeer(e.connectionId).start();
+  //     }
+  //   } else {
+  //     // A viewer only ever talks to the host.
+  //     for (const id of [...peers.keys()]) if (id !== hostConnId) dropPeer(id);
+  //     const hostGone = !hostConnId;
+  //     hostPresent = !hostGone;
+  //     if (hostGone) {
+  //       o.remoteVideo.srcObject = null;
+  //       link = "none"; framesFlowing = false;
+  //     } else if (!peers.has(hostConnId)) {
+  //       link = "connecting"; framesFlowing = false; // the host's offer is on its way
+  //     }
+  //     pushHost();
+  //   }
+  // });
 
   const offState = realtime.on("stream.state", (env) => {
     const p = env.payload as StreamStatePayload | undefined;
-    if (!p || p.roomId !== roomId || !role) return;
+    if (!p || p.roomId !== roomId) return;
+  
     hostConnId = p.hostConnId;
     hostCamera = !!p.hostCamera;
     const ids = new Set(p.participants.map((x) => x.connectionId));
     o.onRoster({ participants: p.participants, hostConnId, myConnId });
-
+  
+    // FALLBACK: if stream.joined was missed or raced, derive the role from the
+    // roster the server just sent. This is the same data the server used to
+    // decide, so it is authoritative.
+    if (!roleApplied) {
+      const me = p.participants.find((x) => x.connectionId === myConnId);
+      if (me) {
+        role = me.role;
+        roleApplied = true;
+        o.onRole(me.role);
+        announceCamera(true);
+      }
+    }
+  
     // Forget peers that left.
     for (const id of [...peers.keys()]) if (!ids.has(id)) dropPeer(id);
-
+  
     if (role === "host") {
-      // The host opens one connection to every viewer.
       for (const e of p.participants) {
         if (e.connectionId === myConnId || peers.has(e.connectionId)) continue;
         void makePeer(e.connectionId).start();
       }
-    } else {
-      // A viewer only ever talks to the host.
+    } else if (role === "viewer") {
       for (const id of [...peers.keys()]) if (id !== hostConnId) dropPeer(id);
       const hostGone = !hostConnId;
       hostPresent = !hostGone;
@@ -170,12 +251,12 @@ export function initStream(o: StreamOptions): StreamHandle {
         o.remoteVideo.srcObject = null;
         link = "none"; framesFlowing = false;
       } else if (!peers.has(hostConnId)) {
-        link = "connecting"; framesFlowing = false; // the host's offer is on its way
+        link = "connecting"; framesFlowing = false;
       }
       pushHost();
     }
   });
-
+  
   const offSignal = realtime.on("stream.signal", (env) => {
     const p = env.payload as SignalPayload | undefined;
     if (!p?.from || p.roomId !== roomId || !role) return;
@@ -191,8 +272,9 @@ export function initStream(o: StreamOptions): StreamHandle {
 
   // Join on every open: first connect and every reconnect.
   const join = () => { joinId = realtime.send("stream.join", { groupId, roomId }); };
-  const offStatus = realtime.onStatus((s) => { if (s === "open") join(); });
-  if (realtime.status === "open") join();
+  const offStatus = realtime.onStatus((s) => {
+    if (s === "open") join();
+  });
 
   // Camera on/off, device switch, mic on: plug the new tracks into every connection.
   const offMedia = media.subscribe(() => {

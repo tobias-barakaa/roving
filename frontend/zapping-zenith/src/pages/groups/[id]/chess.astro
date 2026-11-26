@@ -1,0 +1,20 @@
+---
+// frontend/src/pages/groups/[id]/chess.astro  (new file)
+export const prerender = false;
+import "../../../styles/groups.css";
+import "../../../styles/chess.css";
+import DashboardLayout from "../../../layouts/DashboardLayout.astro";
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect("/dashboard");
+---
+<DashboardLayout title="Chess">
+  <div data-ch-page data-group-id={id}>
+    <div data-ch-mount aria-live="polite"><p>Loading chess…</p></div>
+  </div>
+</DashboardLayout>
+
+<script>
+  import { initChessPage } from "../../../lib/chess/chessPage";
+  void initChessPage();
+</script>

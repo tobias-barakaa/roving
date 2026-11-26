@@ -1,0 +1,32 @@
+---
+// Top bar: live status, who's here, clock, focus timer, screen share, chess switch.
+---
+<section class="rm-top" aria-label="Room status and tools">
+  <div class="rm-top__group">
+    <span class="rm-pill" data-rm-live-status data-state="waiting">
+      <span class="rm-pill__dot" aria-hidden="true"></span>
+      <span data-rm-live-status-text>Waiting for host</span>
+    </span>
+    <span class="rm-top__meta"><span data-rm-count>1</span> here</span>
+    <span class="rm-top__meta" data-rm-role>…</span>
+  </div>
+
+  <div class="rm-top__clock">
+    <time class="rm-top__time" data-rm-clock-time>--:--:--</time>
+    <span class="rm-top__sub"><span data-rm-clock-date></span>, in room <span data-rm-elapsed>00:00:00</span></span>
+  </div>
+
+  <div class="rm-top__group rm-top__group--end">
+    <div class="rm-focus" data-rm-focus data-phase="focus" data-running="false" role="group" aria-label="Focus timer">
+      <span class="rm-focus__phase" data-rm-focus-phase>Focus</span>
+      <span class="rm-focus__time" data-rm-focus-time>25:00</span>
+      <span class="rm-focus__cycle" data-rm-focus-cycle>Cycle 1 of 4</span>
+      <button type="button" class="btn btn--ghost btn--sm" data-rm-focus-toggle>Start</button>
+      <button type="button" class="btn btn--ghost btn--sm" data-rm-focus-skip>Skip</button>
+      <button type="button" class="btn btn--ghost btn--sm" data-rm-focus-reset>Reset</button>
+    </div>
+    <button type="button" class="btn btn--sm" data-rm-screen-btn aria-pressed="false"><span data-rm-screen-btn-label>Share screen</span></button>
+    <button type="button" class="btn btn--ghost btn--sm" data-rm-mode-toggle aria-pressed="false"><span data-rm-mode-label>Play chess</span></button>
+  </div>
+  <p class="notice notice--error rm-top__error" data-rm-screen-error role="alert" hidden></p>
+</section>

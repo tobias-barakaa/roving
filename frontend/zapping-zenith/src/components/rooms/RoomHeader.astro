@@ -1,27 +1,25 @@
 ---
 /**
- * Room header: breadcrumb "Group name / Rooms / Room name", room name, description,
- * badges (access, host, capacity, archived) and a "Back to rooms" link.
- * Markup only. src/lib/rooms/roomPage.ts fills the [data-rm-*] hooks once the room has loaded.
- * "Room" here always means the persistent room, never a call, focus session or connection.
+ * Title block of the room page: breadcrumb, room name, description, badges.
+ * Filled in by src/lib/rooms/roomPage.ts through the data-rm-* hooks.
  */
 interface Props { groupHref: string; roomsHref: string; }
 const { groupHref, roomsHref } = Astro.props;
 ---
-<header class="rm-head" data-rm-head>
-  <nav aria-label="Breadcrumb">
-    <ol class="rm-crumbs">
-      <li><a href={groupHref} data-rm-crumb-group>Group</a></li>
-      <li><a href={roomsHref}>Rooms</a></li>
-      <li><span aria-current="page" data-rm-crumb-room>Room</span></li>
-    </ol>
+<header class="rm-head">
+  <nav class="rm-crumbs" aria-label="Breadcrumb">
+    <a href={groupHref} data-rm-crumb-group>Group</a>
+    <span aria-hidden="true">/</span>
+    <a href={roomsHref}>Rooms</a>
+    <span aria-hidden="true">/</span>
+    <span aria-current="page" data-rm-crumb-room>Room</span>
   </nav>
   <div class="rm-head__row">
-    <div class="rm-head__main">
-      <div class="rm-head__badges" data-rm-badges></div>
-      <h1 data-rm-name></h1>
+    <div class="rm-head__text">
+      <span class="eyebrow">Study room</span>
+      <h1 data-rm-name>Room</h1>
       <p class="rm-head__desc" data-rm-desc hidden></p>
     </div>
-    <a class="btn btn--ghost btn--sm rm-head__back" href={roomsHref}>← Back to rooms</a>
+    <div class="rm-head__badges" data-rm-badges></div>
   </div>
 </header>

@@ -1,0 +1,96 @@
+/* frontend/src/styles/room-workspace.css
+   Works on top of your existing tokens: it uses currentColor mixes so it follows light/dark,
+   and one per-group accent (--rm-hue, set from the group name in applyGroupTheme). */
+
+.rm {
+  --rm-accent: hsl(var(--rm-hue, 215) 62% 44%);
+  --rm-line: color-mix(in srgb, currentColor 14%, transparent);
+  --rm-soft: color-mix(in srgb, currentColor 5%, transparent);
+  --rm-accent-soft: color-mix(in srgb, var(--rm-accent) 12%, transparent);
+}
+
+/* ---- role: participants never get camera controls (the server enforces it too) ---- */
+[data-rm][data-role="viewer"] [data-rm-cam-start],
+[data-rm][data-role="viewer"] [data-rm-bar-cam],
+[data-rm][data-role="viewer"] [data-rm-cam-pick],
+[data-rm][data-role="viewer"] [data-rm-cam-error],
+[data-rm][data-role="viewer"] [data-rm-video] { display: none !important; }
+
+.rm-stagecol { display: grid; gap: 1rem; min-width: 0; align-content: start; }
+
+/* ---- session strip ---- */
+.rm-clock {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem 2rem;
+  padding: 0.9rem 1.25rem; margin-bottom: 1rem;
+  border: 1px solid var(--rm-line); border-left: 4px solid var(--rm-accent); border-radius: 10px;
+  background: var(--rm-soft);
+}
+.rm-clock__now { display: grid; gap: 0.1rem; }
+.rm-clock__time { font-size: clamp(1.6rem, 4vw, 2.25rem); font-weight: 650; line-height: 1.1; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
+.rm-clock__date { font-size: 0.9rem; opacity: 0.7; }
+.rm-clock__stats { display: flex; flex-wrap: wrap; gap: 0.75rem 2rem; margin: 0; }
+.rm-clock__stats > div { display: grid; gap: 0.1rem; }
+.rm-clock__stats dt { font-size: 0.78rem; opacity: 0.65; }
+.rm-clock__stats dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* ---- host stage ---- */
+.rm-host[hidden] { display: none; }
+.rm-host__frame {
+  position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 12px;
+  background: #0d1117; border: 1px solid var(--rm-line);
+}
+.rm-host__video { width: 100%; height: 100%; object-fit: contain; display: block; background: #0d1117; }
+.rm-host__video.is-dim { opacity: 0.15; }
+.rm-host__status {
+  position: absolute; inset: 0; display: grid; place-content: center; gap: 0.35rem;
+  padding: 1.5rem; text-align: center; color: #e8edf3;
+}
+.rm-host__status[hidden] { display: none; }
+.rm-host__status-title { margin: 0; font-size: 1.15rem; font-weight: 600; }
+.rm-host__status-text { margin: 0; font-size: 0.92rem; opacity: 0.75; max-width: 34ch; }
+.rm-host__live {
+  position: absolute; top: 0.75rem; left: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 999px;
+  font-size: 0.8rem; font-weight: 600; color: #fff; background: #d92d20;
+}
+.rm-host__live[hidden], .rm-host__unmute[hidden] { display: none; }
+.rm-host__unmute { position: absolute; bottom: 0.75rem; left: 50%; transform: translateX(-50%); }
+
+/* ---- workspace ---- */
+.rm-ws { margin-top: 1rem; border: 1px solid var(--rm-line); border-radius: 12px; overflow: hidden; }
+.rm-ws__tabs { display: flex; gap: 0.25rem; padding: 0.4rem 0.5rem 0; border-bottom: 1px solid var(--rm-line); background: var(--rm-soft); }
+.rm-ws__tabs [role="tab"] {
+  appearance: none; border: 0; background: transparent; color: inherit; font: inherit; font-weight: 500;
+  padding: 0.55rem 1rem; border-radius: 8px 8px 0 0; cursor: pointer; opacity: 0.7;
+  border-bottom: 3px solid transparent;
+}
+.rm-ws__tabs [role="tab"][aria-selected="true"] { opacity: 1; font-weight: 650; border-bottom-color: var(--rm-accent); background: var(--rm-accent-soft); }
+.rm-ws__tabs [role="tab"]:focus-visible { outline: 2px solid var(--rm-accent); outline-offset: -2px; }
+.rm-ws__pane { padding: 1rem; display: grid; gap: 0.75rem; }
+.rm-ws__pane[hidden] { display: none; }
+.rm-ws__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.rm-ws__hint { font-size: 0.85rem; opacity: 0.65; }
+.rm-ws__actions { display: flex; gap: 0.5rem; }
+
+.rm-notes__input, .rm-ai__form textarea {
+  width: 100%; box-sizing: border-box; resize: vertical; font: inherit; line-height: 1.55; color: inherit;
+  padding: 0.75rem 0.9rem; border: 1px solid var(--rm-line); border-radius: 8px; background: transparent;
+}
+.rm-notes__input:focus-visible, .rm-ai__form textarea:focus-visible { outline: 2px solid var(--rm-accent); outline-offset: 1px; }
+
+.rm-ai__log { display: grid; gap: 0.6rem; align-content: start; min-height: 9rem; max-height: 20rem; overflow-y: auto; }
+.rm-ai__empty { margin: 0; opacity: 0.65; }
+.rm-ai__msg { max-width: 85%; padding: 0.6rem 0.85rem; border-radius: 10px; border: 1px solid var(--rm-line); }
+.rm-ai__msg p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+.rm-ai__msg--you { justify-self: end; background: var(--rm-accent-soft); border-color: transparent; }
+.rm-ai__msg.is-pending { opacity: 0.6; }
+.rm-ai__msg.is-error { border-color: #d92d20; }
+.rm-ai__chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.rm-ai__form { display: grid; grid-template-columns: 1fr auto; gap: 0.5rem; align-items: end; }
+
+@media (max-width: 40rem) {
+  .rm-clock { padding: 0.75rem 1rem; }
+  .rm-ai__msg { max-width: 100%; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .rm-host__video { transition: opacity 0.2s ease; }
+}

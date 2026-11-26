@@ -1,0 +1,17 @@
+---
+// frontend/src/components/chess/ChessCard.astro
+// "Ready for a chess match?" entry card. Inside a room (default) the button opens the Chess tab.
+// Elsewhere (dashboard, group overview) pass `href` and it links to the standalone page.
+interface Props { image?: string; href?: string; }
+const { image, href } = Astro.props;
+---
+<section class="ch-card" aria-labelledby="ch-card-title">
+  {image && <img class="ch-card__img" src={image} alt="" loading="lazy" width="96" height="96" />}
+  <div class="ch-card__body">
+    <h3 class="ch-card__title" id="ch-card-title">Ready for a chess match?</h3>
+    <p class="ch-card__text">Find another member and play.</p>
+    {href
+      ? <a class="btn btn--primary btn--sm" href={href}>Play chess →</a>
+      : <button type="button" class="btn btn--primary btn--sm" data-rm-open-chess>Play chess →</button>}
+  </div>
+</section>

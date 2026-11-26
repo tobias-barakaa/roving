@@ -1,0 +1,37 @@
+---
+// Private tools for this room: notes (saved in this browser) and an AI helper.
+---
+<section class="rm-ws" aria-label="Workspace">
+  <div class="rm-ws__tabs" role="tablist" aria-label="Workspace tools">
+    <button type="button" role="tab" id="rm-ws-tab-notes" aria-controls="rm-ws-pane-notes" aria-selected="true" data-rm-ws-tab="notes">Notes</button>
+    <button type="button" role="tab" id="rm-ws-tab-ai" aria-controls="rm-ws-pane-ai" aria-selected="false" tabindex="-1" data-rm-ws-tab="ai">Ask AI</button>
+  </div>
+
+  <div class="rm-ws__pane" role="tabpanel" id="rm-ws-pane-notes" aria-labelledby="rm-ws-tab-notes" data-rm-ws-pane="notes">
+    <label class="visually-hidden" for="rm-notes-input">Your notes for this room</label>
+    <textarea id="rm-notes-input" class="rm-notes__input" data-rm-notes-input rows="9" placeholder="Write what you want to remember. Notes stay in this browser and are private to you."></textarea>
+    <div class="rm-ws__bar">
+      <span class="rm-ws__hint" data-rm-notes-status aria-live="polite">Notes save automatically.</span>
+      <span class="rm-ws__actions">
+        <button type="button" class="btn btn--ghost btn--sm" data-rm-notes-download>Download notes</button>
+        <button type="button" class="btn btn--ghost btn--sm" data-rm-notes-clear>Clear notes</button>
+      </span>
+    </div>
+  </div>
+
+  <div class="rm-ws__pane" role="tabpanel" id="rm-ws-pane-ai" aria-labelledby="rm-ws-tab-ai" data-rm-ws-pane="ai" hidden>
+    <div class="rm-ai__log" data-rm-ai-log role="log" aria-live="polite">
+      <p class="rm-ai__empty" data-rm-ai-empty>Ask about what's being taught. Your notes can be included as context.</p>
+    </div>
+    <div class="rm-ai__chips">
+      <button type="button" class="btn btn--ghost btn--sm" data-rm-ai-chip="Summarise my notes in five points.">Summarise my notes</button>
+      <button type="button" class="btn btn--ghost btn--sm" data-rm-ai-chip="Explain this in simple terms: ">Explain simply</button>
+      <button type="button" class="btn btn--ghost btn--sm" data-rm-ai-chip="Quiz me on my notes with five questions.">Quiz me</button>
+    </div>
+    <form class="rm-ai__form" data-rm-ai-form>
+      <label class="visually-hidden" for="rm-ai-input">Your question</label>
+      <textarea id="rm-ai-input" data-rm-ai-input rows="2" placeholder="Ask a question…"></textarea>
+      <button type="submit" class="btn btn--sm" data-rm-ai-send>Ask</button>
+    </form>
+  </div>
+</section>

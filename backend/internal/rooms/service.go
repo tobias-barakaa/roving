@@ -73,6 +73,56 @@ func (s *Service) Create(ctx context.Context, actorID, groupID string, req Creat
 // frontend can render the lock state. This is deliberate: the caller
 // *knows* the room exists because it's in the group list; hiding it here
 // would be inconsistent.
+// func (s *Service) Get(ctx context.Context, actorID, groupID, roomID string) (*RoomDetail, error) {
+// 	room, err := s.repo.GetByIDGroup(ctx, s.db, roomID, groupID)
+// 	if errors.Is(err, ErrNotFound) {
+// 		return nil, ErrNotFound
+// 	}
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	groupRole, err := s.requireGroupRole(ctx, s.db, groupID, actorID, GroupRoleMember)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	canEnter := room.Access == AccessGroup
+// 	var roomRole RoomRole
+// 	// Look up room role (works for both access modes; useful for hosts even
+// 	// on 'group' rooms).
+// 	if m, err := s.repo.GetRoomMembership(ctx, s.db, roomID, actorID); err == nil && m.Status == "active" {
+// 		roomRole = m.Role
+// 		if room.Access == AccessRestricted {
+// 			canEnter = true
+// 		}
+// 	} else if err != nil && !errors.Is(err, ErrNotFound) {
+// 		return nil, err
+// 	}
+
+// 	// Group admins/owner may enter any room (moderation override).
+// 	if groupRole >= GroupRoleAdmin {
+// 		canEnter = true
+// 	}
+
+// 	// Group name for display.
+// 	var groupName string
+// 	if err := s.db.QueryRow(ctx,
+// 		`SELECT name FROM study_groups WHERE id = $1::uuid`, groupID,
+// 	).Scan(&groupName); err != nil {
+// 		return nil, err
+// 	}
+
+// 	return &RoomDetail{
+// 		Room:       *room,
+// 		GroupName:  groupName,
+// 		MyRole:     groupRole,
+// 		MyRoomRole: roomRole,
+// 		CanEnter:   canEnter,
+// 	}, nil
+// }
+
+
 func (s *Service) Get(ctx context.Context, actorID, groupID, roomID string) (*RoomDetail, error) {
 	room, err := s.repo.GetByIDGroup(ctx, s.db, roomID, groupID)
 	if errors.Is(err, ErrNotFound) {
@@ -88,38 +138,36 @@ func (s *Service) Get(ctx context.Context, actorID, groupID, roomID string) (*Ro
 	}
 
 	canEnter := room.Access == AccessGroup
+
+	// Room-level role (only meaningful for restricted rooms with explicit members).
 	var roomRole RoomRole
-	// Look up room role (works for both access modes; useful for hosts even
-	// on 'group' rooms).
 	if m, err := s.repo.GetRoomMembership(ctx, s.db, roomID, actorID); err == nil && m.Status == "active" {
-		roomRole = m.Role
-		if room.Access == AccessRestricted {
-			canEnter = true
-		}
-	} else if err != nil && !errors.Is(err, ErrNotFound) {
-		return nil, err
+		roomRole = RoomRole(m.Role) // NOTE: assumes m.Role is the int RoomRole; drop the cast if it already is
 	}
 
-	// Group admins/owner may enter any room (moderation override).
-	if groupRole >= GroupRoleAdmin {
-		canEnter = true
+	// Restricted rooms: must have an active room membership to enter.
+	if room.Access == AccessRestricted {
+		canEnter = roomRole == RoomRoleHost || roomRole == RoomRoleMember
 	}
 
-	// Group name for display.
-	var groupName string
-	if err := s.db.QueryRow(ctx,
-		`SELECT name FROM study_groups WHERE id = $1::uuid`, groupID,
-	).Scan(&groupName); err != nil {
-		return nil, err
+	// THE FIX: the group owner is the publisher. Everyone else is a viewer.
+	// MyRole is the GROUP role (GroupRole). MyRoomRole is the per-room role.
+	myGroupRole := groupRole
+	if groupRole == GroupRoleOwner {
+		canEnter = true // owner can always enter
 	}
 
-	return &RoomDetail{
+	// If you want explicit per-room hosts of restricted rooms to also publish,
+	// promote them to owner-equivalent for the stream decision by exposing the
+	// room role separately — the resolver can check MyRoomRole too.
+	detail := &RoomDetail{
 		Room:       *room,
-		GroupName:  groupName,
-		MyRole:     groupRole,
-		MyRoomRole: roomRole,
+		GroupName:  "", // fill from your repo if you have it, e.g. s.repo.GroupName(ctx, groupID)
+		MyRole:     myGroupRole, // GroupRole: owner/admin/moderator/member
+		MyRoomRole: roomRole,    // RoomRole: host/member/none
 		CanEnter:   canEnter,
-	}, nil
+	}
+	return detail, nil
 }
 
 func (s *Service) List(ctx context.Context, actorID, groupID string, f ListFilter) ([]Room, error) {

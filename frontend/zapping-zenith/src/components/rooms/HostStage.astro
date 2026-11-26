@@ -1,0 +1,14 @@
+---
+// What participants watch: the host's stream. Hidden for the host themselves.
+---
+<section class="rm-host" data-rm-host-stage aria-label="Host stream">
+  <div class="rm-host__frame">
+    <video class="rm-host__video" data-rm-host-video autoplay playsinline></video>
+    <div class="rm-host__status" data-rm-host-status role="status">
+      <p class="rm-host__status-title" data-rm-host-status-title>Waiting for the host</p>
+      <p class="rm-host__status-text" data-rm-host-status-text>The stream starts when the host opens the room.</p>
+    </div>
+    <span class="rm-host__live" data-rm-host-live hidden>Live</span>
+    <button type="button" class="btn btn--sm rm-host__unmute" data-rm-host-unmute hidden>Tap to hear the host</button>
+  </div>
+</section>

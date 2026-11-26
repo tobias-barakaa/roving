@@ -164,6 +164,15 @@ func (s *Service) Join(ctx context.Context, actorID, groupID, gameID string) (*G
 		return nil, ErrGameFull
 	}
 
+	//only start once both seats are taken
+	if game.WhitePlayerID == nil || game.BlackPlayerID == nil {
+    // persist the seat, stay pending
+    if err := s.repo.SaveGame(ctx, tx, game); err != nil { return nil, err }
+    if err := tx.Commit(ctx); err != nil { return nil, err }
+    return s.buildState(ctx, game, nil)
+	}
+	game.Status = StatusActive
+
 	game.Status = StatusActive
 	now := time.Now()
 	game.StartedAt = &now

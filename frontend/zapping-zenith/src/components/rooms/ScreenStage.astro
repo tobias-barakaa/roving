@@ -1,0 +1,20 @@
+---
+// Large central area. Normally the host's shared screen; the chess area replaces it when chess mode is on.
+---
+<div class="rm-board__main">
+  <section class="rm-screen" aria-label="Shared screen">
+    <div class="rm-screen__frame">
+      <video class="rm-screen__video" data-rm-screen-video autoplay playsinline muted></video>
+      <div class="rm-screen__status" data-rm-screen-status role="status">
+        <p class="rm-screen__title" data-rm-screen-status-title>Waiting for the host</p>
+        <p class="rm-screen__text" data-rm-screen-status-text>The shared screen appears here.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="rm-chess" data-rm-chess-area aria-label="Chess" hidden>
+    <div class="rm-chess__mount" data-rm-chess-mount>
+      <p class="rm-chess__empty">The chess board mounts here.</p>
+    </div>
+  </section>
+</div>
