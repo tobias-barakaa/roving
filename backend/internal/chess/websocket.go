@@ -137,20 +137,49 @@ func (h *Hub) register(userID, gameID string, conn *websocket.Conn, state *GameS
 	return cl
 }
 
-func (h *Hub) unregister(cl *client) {
-	h.mu.Lock()
-	room := h.rooms[cl.gameID]
-	if room != nil && room[cl.userID] == cl {
-		delete(room, cl.userID)
-		if len(room) == 0 {
-			delete(h.rooms, cl.gameID)
-		}
-	}
-	h.mu.Unlock()
 
-	cl.markDone()
-	h.Broadcast(cl.gameID, wsEvent{Type: "opponent.disconnected", UserID: cl.userID})
+func (h *Hub) unregister(cl *client) {
+    h.mu.Lock()
+
+    room := h.rooms[cl.gameID]
+    removed := false
+
+    if room != nil && room[cl.userID] == cl {
+        delete(room, cl.userID)
+        removed = true
+
+        if len(room) == 0 {
+            delete(h.rooms, cl.gameID)
+        }
+    }
+
+    h.mu.Unlock()
+
+    cl.markDone()
+
+    // Only announce disconnection if this was the active connection.
+    if removed {
+        h.Broadcast(cl.gameID, wsEvent{
+            Type:   "opponent.disconnected",
+            UserID: cl.userID,
+        })
+    }
 }
+
+// func (h *Hub) unregister(cl *client) {
+// 	h.mu.Lock()
+// 	room := h.rooms[cl.gameID]
+// 	if room != nil && room[cl.userID] == cl {
+// 		delete(room, cl.userID)
+// 		if len(room) == 0 {
+// 			delete(h.rooms, cl.gameID)
+// 		}
+// 	}
+// 	h.mu.Unlock()
+
+// 	cl.markDone()
+// 	h.Broadcast(cl.gameID, wsEvent{Type: "opponent.disconnected", UserID: cl.userID})
+// }
 
 // Shutdown closes every connection; call before http.Server.Shutdown, which
 // does not track hijacked (WebSocket) connections.

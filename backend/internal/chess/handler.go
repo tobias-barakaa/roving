@@ -86,24 +86,26 @@ func (h *Handler) create(c *gin.Context) {
 	if !bind(c, &req) {
 		return
 	}
-	state, err := h.svc.Create(c.Request.Context(), auth.UserID(c), c.Param("id"), req)
+	u := auth.UserID(c)
+	state, err := h.svc.Create(c.Request.Context(), u, c.Param("id"), req)
 	if err != nil {
 		h.writeErr(c, err)
 		return
 	}
+	state.ViewerID = u
 	c.JSON(http.StatusCreated, state)
 }
 
 func (h *Handler) get(c *gin.Context) {
 	u, gr, gm := ids(c)
 	state, err := h.svc.Get(c.Request.Context(), u, gr, gm)
-	h.respond(c, state, err)
+	h.respond(c, u, state, err)
 }
 
 func (h *Handler) join(c *gin.Context) {
 	u, gr, gm := ids(c)
 	state, err := h.svc.Join(c.Request.Context(), u, gr, gm)
-	h.respond(c, state, err)
+	h.respond(c, u, state, err)
 }
 
 func (h *Handler) cancel(c *gin.Context) {
@@ -126,13 +128,16 @@ func (h *Handler) move(c *gin.Context) {
 		h.writeErr(c, err)
 		return
 	}
+	if res.State != nil {
+		res.State.ViewerID = u
+	}
 	c.JSON(http.StatusOK, res)
 }
 
 func (h *Handler) timeout(c *gin.Context) {
 	u, gr, gm := ids(c)
 	state, err := h.svc.ClaimTimeout(c.Request.Context(), u, gr, gm)
-	h.respond(c, state, err)
+	h.respond(c, u, state, err)
 }
 
 func (h *Handler) moves(c *gin.Context) {
@@ -158,25 +163,25 @@ func (h *Handler) legalMoves(c *gin.Context) {
 func (h *Handler) resign(c *gin.Context) {
 	u, gr, gm := ids(c)
 	state, err := h.svc.Resign(c.Request.Context(), u, gr, gm)
-	h.respond(c, state, err)
+	h.respond(c, u, state, err)
 }
 
 func (h *Handler) offerDraw(c *gin.Context) {
 	u, gr, gm := ids(c)
 	state, err := h.svc.OfferDraw(c.Request.Context(), u, gr, gm)
-	h.respond(c, state, err)
+	h.respond(c, u, state, err)
 }
 
 func (h *Handler) acceptDraw(c *gin.Context) {
 	u, gr, gm := ids(c)
 	state, err := h.svc.AcceptDraw(c.Request.Context(), u, gr, gm)
-	h.respond(c, state, err)
+	h.respond(c, u, state, err)
 }
 
 func (h *Handler) declineDraw(c *gin.Context) {
 	u, gr, gm := ids(c)
 	state, err := h.svc.DeclineDraw(c.Request.Context(), u, gr, gm)
-	h.respond(c, state, err)
+	h.respond(c, u, state, err)
 }
 
 func (h *Handler) ws(c *gin.Context) {
@@ -202,11 +207,12 @@ func (h *Handler) ws(c *gin.Context) {
 
 // ---------- helpers ----------
 
-func (h *Handler) respond(c *gin.Context, state *GameStateResponse, err error) {
+func (h *Handler) respond(c *gin.Context, viewer string, state *GameStateResponse, err error) {
 	if err != nil {
 		h.writeErr(c, err)
 		return
 	}
+	state.ViewerID = viewer
 	c.JSON(http.StatusOK, state)
 }
 
@@ -251,6 +257,260 @@ func (h *Handler) writeErr(c *gin.Context, err error) {
 	}
 	c.JSON(status, gin.H{"error": msg, "code": code})
 }
+
+// internal/chess/handler.go
+// package chess
+
+// import (
+// 	"errors"
+// 	"io"
+// 	"log"
+// 	"net/http"
+// 	"strings"
+
+// 	"github.com/gin-gonic/gin"
+// 	"github.com/gorilla/websocket"
+
+// 	"roving/backend/internal/auth"
+// )
+
+// type Handler struct {
+// 	svc         *Service
+// 	hub         *Hub
+// 	requireAuth gin.HandlerFunc
+// 	upgrader    websocket.Upgrader
+// }
+
+// // allowedOrigin is cfg.FrontendOrigin. Browsers always send Origin on a
+// // WebSocket handshake and cookies ride along, so it must match exactly.
+// func NewHandler(svc *Service, hub *Hub, requireAuth gin.HandlerFunc, allowedOrigin string) *Handler {
+// 	allowed := strings.TrimRight(allowedOrigin, "/")
+// 	return &Handler{
+// 		svc: svc, hub: hub, requireAuth: requireAuth,
+// 		upgrader: websocket.Upgrader{
+// 			ReadBufferSize:  1024,
+// 			WriteBufferSize: 1024,
+// 			CheckOrigin: func(r *http.Request) bool {
+// 				origin := r.Header.Get("Origin")
+// 				ok := origin != "" && strings.TrimRight(origin, "/") == allowed
+// 				if !ok {
+// 					log.Printf("chess ws: origin rejected: got %q, allowed %q", origin, allowed)
+// 				}
+// 				return ok
+// 			},
+// 		},
+// 	}
+// }
+
+// // Gin requires the SAME wildcard name at the same position across routes, and
+// // the rooms module already uses ":id" for the group. So: ":id" = group, ":gid" = game.
+// func (h *Handler) Routes(rg *gin.RouterGroup) {
+// 	g := rg.Group("/groups/:id/chess/games", h.requireAuth)
+// 	{
+// 		g.GET("", h.list)
+// 		g.POST("", h.create)
+// 		g.GET("/:gid", h.get)
+// 		g.POST("/:gid/join", h.join)
+// 		g.POST("/:gid/cancel", h.cancel)
+// 		g.POST("/:gid/move", h.move)
+// 		g.POST("/:gid/timeout", h.timeout)
+// 		g.GET("/:gid/moves", h.moves)
+// 		g.GET("/:gid/legal-moves", h.legalMoves)
+// 		g.POST("/:gid/resign", h.resign)
+// 		g.POST("/:gid/draw/offer", h.offerDraw)
+// 		g.POST("/:gid/draw/accept", h.acceptDraw)
+// 		g.POST("/:gid/draw/decline", h.declineDraw)
+// 		g.GET("/:gid/ws", h.ws)
+// 	}
+// }
+
+// func ids(c *gin.Context) (user, group, game string) {
+// 	return auth.UserID(c), c.Param("id"), c.Param("gid")
+// }
+
+// func (h *Handler) list(c *gin.Context) {
+// 	var roomID *string
+// 	if r := c.Query("roomId"); r != "" {
+// 		roomID = &r
+// 	}
+// 	out, err := h.svc.List(c.Request.Context(), auth.UserID(c), c.Param("id"), roomID)
+// 	if err != nil {
+// 		h.writeErr(c, err)
+// 		return
+// 	}
+// 	c.JSON(http.StatusOK, gin.H{"games": out})
+// }
+
+// func (h *Handler) create(c *gin.Context) {
+// 	var req CreateGameRequest
+// 	if !bind(c, &req) {
+// 		return
+// 	}
+// 	state, err := h.svc.Create(c.Request.Context(), auth.UserID(c), c.Param("id"), req)
+// 	if err != nil {
+// 		h.writeErr(c, err)
+// 		return
+// 	}
+// 	c.JSON(http.StatusCreated, state)
+// }
+
+// func (h *Handler) get(c *gin.Context) {
+// 	u, gr, gm := ids(c)
+// 	state, err := h.svc.Get(c.Request.Context(), u, gr, gm)
+// 	h.respond(c, state, err)
+// }
+
+// func (h *Handler) join(c *gin.Context) {
+// 	u, gr, gm := ids(c)
+// 	state, err := h.svc.Join(c.Request.Context(), u, gr, gm)
+// 	h.respond(c, state, err)
+// }
+
+// func (h *Handler) cancel(c *gin.Context) {
+// 	u, gr, gm := ids(c)
+// 	if err := h.svc.Cancel(c.Request.Context(), u, gr, gm); err != nil {
+// 		h.writeErr(c, err)
+// 		return
+// 	}
+// 	c.JSON(http.StatusOK, gin.H{"ok": true})
+// }
+
+// func (h *Handler) move(c *gin.Context) {
+// 	var req MoveRequest
+// 	if !bind(c, &req) {
+// 		return
+// 	}
+// 	u, gr, gm := ids(c)
+// 	res, err := h.svc.Move(c.Request.Context(), u, gr, gm, req)
+// 	if err != nil {
+// 		h.writeErr(c, err)
+// 		return
+// 	}
+// 	c.JSON(http.StatusOK, res)
+// }
+
+// func (h *Handler) timeout(c *gin.Context) {
+// 	u, gr, gm := ids(c)
+// 	state, err := h.svc.ClaimTimeout(c.Request.Context(), u, gr, gm)
+// 	h.respond(c, state, err)
+// }
+
+// func (h *Handler) moves(c *gin.Context) {
+// 	u, gr, gm := ids(c)
+// 	state, err := h.svc.Get(c.Request.Context(), u, gr, gm)
+// 	if err != nil {
+// 		h.writeErr(c, err)
+// 		return
+// 	}
+// 	c.JSON(http.StatusOK, gin.H{"moves": state.Moves})
+// }
+
+// func (h *Handler) legalMoves(c *gin.Context) {
+// 	u, gr, gm := ids(c)
+// 	res, err := h.svc.LegalMoves(c.Request.Context(), u, gr, gm)
+// 	if err != nil {
+// 		h.writeErr(c, err)
+// 		return
+// 	}
+// 	c.JSON(http.StatusOK, res)
+// }
+
+// func (h *Handler) resign(c *gin.Context) {
+// 	u, gr, gm := ids(c)
+// 	state, err := h.svc.Resign(c.Request.Context(), u, gr, gm)
+// 	h.respond(c, state, err)
+// }
+
+// func (h *Handler) offerDraw(c *gin.Context) {
+// 	u, gr, gm := ids(c)
+// 	state, err := h.svc.OfferDraw(c.Request.Context(), u, gr, gm)
+// 	h.respond(c, state, err)
+// }
+
+// func (h *Handler) acceptDraw(c *gin.Context) {
+// 	u, gr, gm := ids(c)
+// 	state, err := h.svc.AcceptDraw(c.Request.Context(), u, gr, gm)
+// 	h.respond(c, state, err)
+// }
+
+// func (h *Handler) declineDraw(c *gin.Context) {
+// 	u, gr, gm := ids(c)
+// 	state, err := h.svc.DeclineDraw(c.Request.Context(), u, gr, gm)
+// 	h.respond(c, state, err)
+// }
+
+// func (h *Handler) ws(c *gin.Context) {
+// 	u, gr, gm := ids(c)
+// 	state, err := h.svc.Connect(c.Request.Context(), u, gr, gm)
+// 	if err != nil {
+// 		log.Printf("chess ws: refused user=%s game=%s reason=%v", u, gm, err)
+// 		h.writeErr(c, err)
+// 		return
+// 	}
+// 	conn, err := h.upgrader.Upgrade(c.Writer, c.Request, nil)
+// 	if err != nil {
+// 		log.Printf("chess ws: upgrade failed user=%s game=%s: %v", u, gm, err)
+// 		return
+// 	}
+// 	cl := h.hub.register(u, gm, conn, state)
+// 	if cl == nil {
+// 		_ = conn.Close()
+// 		return
+// 	}
+// 	cl.readPump()
+// }
+
+// // ---------- helpers ----------
+
+// func (h *Handler) respond(c *gin.Context, state *GameStateResponse, err error) {
+// 	if err != nil {
+// 		h.writeErr(c, err)
+// 		return
+// 	}
+// 	c.JSON(http.StatusOK, state)
+// }
+
+// func bind(c *gin.Context, dst any) bool {
+// 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1<<16)
+// 	if err := c.ShouldBindJSON(dst); err != nil && !errors.Is(err, io.EOF) {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body", "code": "invalid_request"})
+// 		return false
+// 	}
+// 	return true
+// }
+
+// func (h *Handler) writeErr(c *gin.Context, err error) {
+// 	status, msg, code := http.StatusInternalServerError, "something went wrong", "internal"
+// 	switch {
+// 	case errors.Is(err, ErrNotFound):
+// 		status, msg, code = http.StatusNotFound, "not found", "not_found"
+// 	case errors.Is(err, ErrForbidden):
+// 		status, msg, code = http.StatusForbidden, "you do not have permission to do that", "forbidden"
+// 	case errors.Is(err, ErrNotAPlayer):
+// 		status, msg, code = http.StatusForbidden, "you are not a player in this game", "not_a_player"
+// 	case errors.Is(err, ErrInvalid):
+// 		status, msg, code = http.StatusBadRequest, err.Error(), "invalid_request"
+// 	case errors.Is(err, ErrIllegalMove):
+// 		status, msg, code = http.StatusBadRequest, "illegal move", "illegal_move"
+// 	case errors.Is(err, ErrPromotionRequired):
+// 		status, msg, code = http.StatusBadRequest, "a promotion piece is required", "promotion_required"
+// 	case errors.Is(err, ErrNotYourTurn):
+// 		status, msg, code = http.StatusConflict, "not your turn", "not_your_turn"
+// 	case errors.Is(err, ErrStaleMove):
+// 		status, msg, code = http.StatusConflict, "stale move, please refresh", "stale_move"
+// 	case errors.Is(err, ErrGameNotActive):
+// 		status, msg, code = http.StatusConflict, "game is not active", "game_over"
+// 	case errors.Is(err, ErrFlagFall):
+// 		status, msg, code = http.StatusConflict, "time expired", "game_over"
+// 	case errors.Is(err, ErrGameFull):
+// 		status, msg, code = http.StatusConflict, "game already has two players", "game_full"
+// 	case errors.Is(err, ErrAlreadyJoined):
+// 		status, msg, code = http.StatusConflict, "you are already in this game", "already_joined"
+// 	default:
+// 		log.Printf("chess error: %v", err)
+// 	}
+// 	c.JSON(status, gin.H{"error": msg, "code": code})
+// }
 
 // // internal/chess/handler.go
 // package chess

@@ -177,6 +177,7 @@ func (r *Repository) GetRoomMembership(ctx context.Context, ex pgxExecutor, room
 	return &m, nil
 }
 
+
 // HasActiveRoomMembership returns true if there's an active room_memberships row.
 // Cheaper than GetRoomMembership when we only need the boolean.
 func (r *Repository) HasActiveRoomMembership(ctx context.Context, ex pgxExecutor, roomID, userID string) (bool, error) {
